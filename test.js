@@ -174,6 +174,34 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should create a JWT auth client from a keyFile', function (done) {
+      var jwt = {};
+
+      googleAuthLibraryOverride = function () {
+        return {
+          JWT: function () { return jwt; }
+        };
+      };
+
+      auth.config = {
+        keyFile: 'key.json',
+        email: 'example@example.com',
+        scopes: ['dev.scope']
+      };
+
+      auth._getClient(function (err, authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(jwt.keyFile, auth.config.keyFile);
+        assert.strictEqual(jwt.email, auth.config.email);
+        assert.strictEqual(jwt.scopes, auth.config.scopes);
+
+        assert.strictEqual(authClient, jwt);
+
+        done();
+      });
+    });
+
     it('should create an auth client from credentials', function (done) {
       var credentialsSet;
 

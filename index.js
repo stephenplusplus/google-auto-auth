@@ -52,9 +52,9 @@ Auth.prototype._getClient = function (callback) {
 
   var googleAuth = new GoogleAuth();
 
-  if (config.keyFilename) {
+  if (config.keyFilename || config.keyFile) {
     var authClient = new googleAuth.JWT();
-    authClient.keyFile = config.keyFilename;
+    authClient.keyFile = config.keyFilename || config.keyFile;
     authClient.email = config.email;
     authClient.scopes = config.scopes;
     addScope(null, authClient);
