@@ -27,6 +27,32 @@ Auth.prototype.authorizeRequest = function (reqOpts, callback) {
   });
 };
 
+Auth.prototype.getCredentials = function (callback) {
+  this._getClient(function (err, client) {
+    if (err) {
+      callback(err);
+      return;
+    }
+
+    if (client.email && client.key) {
+      callback(null, {
+        client_email: client.email,
+        private_key: client.key
+      });
+      return;
+    }
+
+    client.authorize(function (err) {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      client.getCredentials(callback);
+    });
+  });
+};
+
 Auth.prototype.getToken = function (callback) {
   this._getClient(function (err, client) {
     if (err) {

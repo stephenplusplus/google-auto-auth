@@ -105,6 +105,25 @@ An API error or an error if scopes are required for the request you're trying to
 
 The reqOpts object provided has been extended with a valid access token attached to the `headers.Authorization` value. E.g.: `headers.Authorization = 'Bearer y.2343...'`.
 
+#### auth.getCredentials(callback)
+
+Get the `client_email` and `private_key` properties from an authorized client.
+
+##### callback(err, credentials)
+
+###### callback.err
+
+- Type: `Error`
+
+An error that occurred while trying to get an authorization client.
+
+###### callback.credentials
+
+- Type: `Object`
+
+An object containing `client_email` and `private_key`.
+
+
 #### auth.getToken(callback)
 
 Get an access token. The token will always be current. If necessary, background refreshes are handled automatically.
@@ -118,5 +137,7 @@ Get an access token. The token will always be current. If necessary, background 
 An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request. There are examples of scopes that are required for some of the Google Cloud Platform services in the [gcloud-node Authorization Guide](https://googlecloudplatform.github.io/gcloud-node/#/authorization).
 
 ###### callback.token
+
+- Type: `String`
 
 A current access token to be used during an API request.

@@ -85,6 +85,75 @@ describe('googleAutoAuth', function () {
     });
   });
 
+  describe('getCredentials', function () {
+    it('should get an auth client', function (done) {
+      auth._getClient = function () {
+        done();
+      };
+
+      auth.getCredentials(assert.ifError);
+    });
+
+    it('should execute callback with error', function (done) {
+      var error = new Error('Error.');
+
+      auth._getClient = function (callback) {
+        callback(error);
+      };
+
+      auth.getCredentials(function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should execute callback with object', function (done) {
+      var credentials = { email: 'email', key: 'key' };
+
+      auth._getClient = function (callback) {
+        callback(null, credentials);
+      };
+
+      auth.getCredentials(function (err, creds) {
+        assert.ifError(err);
+
+        assert.strictEqual(creds.client_email, credentials.email);
+        assert.strictEqual(creds.private_key, credentials.key);
+
+        done();
+      });
+    });
+
+    it('should authorize if necessary', function (done) {
+      auth._getClient = function (callback) {
+        callback(null, {
+          authorize: function () {
+            done();
+          }
+        });
+      };
+
+      auth.getCredentials(assert.ifError);
+    });
+
+    it('should execute callback with error from auth', function (done) {
+      var error = new Error('Error.');
+
+      auth._getClient = function (callback) {
+        callback(null, {
+          authorize: function (callback) {
+            callback(error);
+          }
+        });
+      };
+
+      auth.getCredentials(function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+  });
+
   describe('getToken', function () {
     it('should get an auth client', function (done) {
       auth._getClient = function () {
