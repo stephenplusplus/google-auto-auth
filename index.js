@@ -28,6 +28,8 @@ Auth.prototype.authorizeRequest = function (reqOpts, callback) {
 };
 
 Auth.prototype.getCredentials = function (callback) {
+  var self = this;
+
   this._getClient(function (err, client) {
     if (err) {
       callback(err);
@@ -48,7 +50,7 @@ Auth.prototype.getCredentials = function (callback) {
         return;
       }
 
-      client.getCredentials(callback);
+      self.getCredentials(callback);
     });
   });
 };

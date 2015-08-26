@@ -152,6 +152,22 @@ describe('googleAutoAuth', function () {
         done();
       });
     });
+
+    it('should call getCredentials again', function (done) {
+      auth._getClient = function (callback) {
+        callback(null, {
+          authorize: function (callback) {
+            auth.getCredentials = function () {
+              done();
+            };
+
+            callback();
+          }
+        });
+      };
+
+      auth.getCredentials(assert.ifError);
+    });
   });
 
   describe('getToken', function () {
