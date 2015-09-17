@@ -75,7 +75,7 @@ auth.getToken(function (err, token) {});
 
 - Type: `Object`
 
-See the above section on Authentica. This object is necessary if automatic authentication is not available in your environment.
+See the above section on Authentication. This object is necessary if automatic authentication is not available in your environment.
 
 Everything from the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/gcloud-node/#/authentication) applies here.
 
@@ -85,7 +85,7 @@ At a glance, the supported properties for this method are:
 - `credentials` - Object containing `client_email` and `private_key` properties
 - `scopes` - Required scopes for the desired API request
 
-For more details, see the Authorization Guide linked above, under "The config object".
+For more details, see the Authentication Guide linked above, under "The config object".
 
 #### auth.authorizeRequest(reqOpts, callback)
 
@@ -97,7 +97,7 @@ Extend an HTTP request object with an authorized header.
 
 - Type: `Error`
 
-An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request. There are examples of scopes that are required for some of the Google Cloud Platform services in the [gcloud-node Authorization Guide](https://googlecloudplatform.github.io/gcloud-node/#/authorization).
+An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request. There are examples of scopes that are required for some of the Google Cloud Platform services in the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/gcloud-node/#/authentication).
 
 ###### callback.authorizedReqOpts
 
@@ -134,7 +134,7 @@ Get an access token. The token will always be current. If necessary, background 
 
 - Type: `Error`
 
-An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request. There are examples of scopes that are required for some of the Google Cloud Platform services in the [gcloud-node Authorization Guide](https://googlecloudplatform.github.io/gcloud-node/#/authorization).
+An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request. There are examples of scopes that are required for some of the Google Cloud Platform services in the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/gcloud-node/#/authentication).
 
 ###### callback.token
 
