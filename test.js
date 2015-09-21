@@ -124,6 +124,17 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should return error if authorize is not available', function(done) {
+      auth._getClient = function (callback) {
+        callback(null, {});
+      };
+
+      auth.getCredentials(function(err) {
+        assert.strictEqual(err.message, 'Could not get credentials without a JSON, pem, or p12 keyfile.');
+        done();
+      });
+    });
+
     it('should authorize if necessary', function (done) {
       auth._getClient = function (callback) {
         callback(null, {

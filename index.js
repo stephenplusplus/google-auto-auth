@@ -44,6 +44,11 @@ Auth.prototype.getCredentials = function (callback) {
       return;
     }
 
+    if (!client.authorize) {
+      callback(new Error('Could not get credentials without a JSON, pem, or p12 keyfile.'));
+      return;
+    }
+
     client.authorize(function (err) {
       if (err) {
         callback(err);
