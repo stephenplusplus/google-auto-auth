@@ -85,144 +85,11 @@ describe('googleAutoAuth', function () {
     });
   });
 
-  describe('getCredentials', function () {
-    it('should get an auth client', function (done) {
-      auth._getClient = function () {
-        done();
-      };
-
-      auth.getCredentials(assert.ifError);
-    });
-
-    it('should execute callback with error', function (done) {
-      var error = new Error('Error.');
-
-      auth._getClient = function (callback) {
-        callback(error);
-      };
-
-      auth.getCredentials(function (err) {
-        assert.strictEqual(err, error);
-        done();
-      });
-    });
-
-    it('should execute callback with object', function (done) {
-      var credentials = { email: 'email', key: 'key' };
-
-      auth._getClient = function (callback) {
-        callback(null, credentials);
-      };
-
-      auth.getCredentials(function (err, creds) {
-        assert.ifError(err);
-
-        assert.strictEqual(creds.client_email, credentials.email);
-        assert.strictEqual(creds.private_key, credentials.key);
-
-        done();
-      });
-    });
-
-    it('should return error if authorize is not available', function(done) {
-      auth._getClient = function (callback) {
-        callback(null, {});
-      };
-
-      auth.getCredentials(function(err) {
-        assert.strictEqual(err.message, 'Could not get credentials without a JSON, pem, or p12 keyfile.');
-        done();
-      });
-    });
-
-    it('should authorize if necessary', function (done) {
-      auth._getClient = function (callback) {
-        callback(null, {
-          authorize: function () {
-            done();
-          }
-        });
-      };
-
-      auth.getCredentials(assert.ifError);
-    });
-
-    it('should execute callback with error from auth', function (done) {
-      var error = new Error('Error.');
-
-      auth._getClient = function (callback) {
-        callback(null, {
-          authorize: function (callback) {
-            callback(error);
-          }
-        });
-      };
-
-      auth.getCredentials(function (err) {
-        assert.strictEqual(err, error);
-        done();
-      });
-    });
-
-    it('should call getCredentials again', function (done) {
-      auth._getClient = function (callback) {
-        callback(null, {
-          authorize: function (callback) {
-            auth.getCredentials = function () {
-              done();
-            };
-
-            callback();
-          }
-        });
-      };
-
-      auth.getCredentials(assert.ifError);
-    });
-  });
-
-  describe('getToken', function () {
-    it('should get an auth client', function (done) {
-      auth._getClient = function () {
-        done();
-      };
-
-      auth.getToken(assert.ifError);
-    });
-
-    it('should execute callback with error', function (done) {
-      var error = new Error('Error.');
-
-      auth._getClient = function (callback) {
-        callback(error);
-      };
-
-      auth.getToken(function (err) {
-        assert.strictEqual(err, error);
-        done();
-      });
-    });
-
-    it('should get an access token', function (done) {
-      var fakeClient = {
-        getAccessToken: function (callback) {
-          callback();
-        }
-      };
-
-      auth._getClient = function (callback) {
-        callback(null, fakeClient);
-      };
-
-      auth.getToken(done);
-    });
-  });
-
-  describe('_getClient', function () {
+  describe('getAuthClient', function () {
     it('should re-use an existing authClient', function (done) {
       auth.authClient = { a: 'b', c: 'd' };
 
-      auth._getClient(function (err, authClient) {
+      auth.getAuthClient(function (err, authClient) {
         assert.strictEqual(authClient, auth.authClient);
         done();
       });
@@ -238,7 +105,7 @@ describe('googleAutoAuth', function () {
         };
       };
 
-      auth._getClient(assert.ifError);
+      auth.getAuthClient(assert.ifError);
       assert.strictEqual(googleAuthLibraryCalled, true);
     });
 
@@ -257,7 +124,7 @@ describe('googleAutoAuth', function () {
         scopes: ['dev.scope']
       };
 
-      auth._getClient(function (err, authClient) {
+      auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
 
         assert.strictEqual(jwt.keyFile, auth.config.keyFilename);
@@ -285,7 +152,7 @@ describe('googleAutoAuth', function () {
         scopes: ['dev.scope']
       };
 
-      auth._getClient(function (err, authClient) {
+      auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
 
         assert.strictEqual(jwt.keyFile, auth.config.keyFile);
@@ -314,7 +181,7 @@ describe('googleAutoAuth', function () {
         credentials: { a: 'b', c: 'd' }
       };
 
-      auth._getClient(function (err) {
+      auth.getAuthClient(function (err) {
         assert.ifError(err);
         assert.strictEqual(credentialsSet, auth.config.credentials);
         done();
@@ -330,7 +197,7 @@ describe('googleAutoAuth', function () {
         };
       };
 
-      auth._getClient(done);
+      auth.getAuthClient(done);
     });
 
     it('should scope an auth client if necessary', function (done) {
@@ -357,7 +224,7 @@ describe('googleAutoAuth', function () {
         };
       };
 
-      auth._getClient(done);
+      auth.getAuthClient(done);
     });
 
     it('should pass back any errors from the authClient', function (done) {
@@ -371,10 +238,143 @@ describe('googleAutoAuth', function () {
         };
       };
 
-      auth._getClient(function (err) {
+      auth.getAuthClient(function (err) {
         assert.strictEqual(err,error);
         done();
       });
+    });
+  });
+
+  describe('getCredentials', function () {
+    it('should get an auth client', function (done) {
+      auth.getAuthClient = function () {
+        done();
+      };
+
+      auth.getCredentials(assert.ifError);
+    });
+
+    it('should execute callback with error', function (done) {
+      var error = new Error('Error.');
+
+      auth.getAuthClient = function (callback) {
+        callback(error);
+      };
+
+      auth.getCredentials(function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should execute callback with object', function (done) {
+      var credentials = { email: 'email', key: 'key' };
+
+      auth.getAuthClient = function (callback) {
+        callback(null, credentials);
+      };
+
+      auth.getCredentials(function (err, creds) {
+        assert.ifError(err);
+
+        assert.strictEqual(creds.client_email, credentials.email);
+        assert.strictEqual(creds.private_key, credentials.key);
+
+        done();
+      });
+    });
+
+    it('should return error if authorize is not available', function(done) {
+      auth.getAuthClient = function (callback) {
+        callback(null, {});
+      };
+
+      auth.getCredentials(function(err) {
+        assert.strictEqual(err.message, 'Could not get credentials without a JSON, pem, or p12 keyfile.');
+        done();
+      });
+    });
+
+    it('should authorize if necessary', function (done) {
+      auth.getAuthClient = function (callback) {
+        callback(null, {
+          authorize: function () {
+            done();
+          }
+        });
+      };
+
+      auth.getCredentials(assert.ifError);
+    });
+
+    it('should execute callback with error from auth', function (done) {
+      var error = new Error('Error.');
+
+      auth.getAuthClient = function (callback) {
+        callback(null, {
+          authorize: function (callback) {
+            callback(error);
+          }
+        });
+      };
+
+      auth.getCredentials(function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should call getCredentials again', function (done) {
+      auth.getAuthClient = function (callback) {
+        callback(null, {
+          authorize: function (callback) {
+            auth.getCredentials = function () {
+              done();
+            };
+
+            callback();
+          }
+        });
+      };
+
+      auth.getCredentials(assert.ifError);
+    });
+  });
+
+  describe('getToken', function () {
+    it('should get an auth client', function (done) {
+      auth.getAuthClient = function () {
+        done();
+      };
+
+      auth.getToken(assert.ifError);
+    });
+
+    it('should execute callback with error', function (done) {
+      var error = new Error('Error.');
+
+      auth.getAuthClient = function (callback) {
+        callback(error);
+      };
+
+      auth.getToken(function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should get an access token', function (done) {
+      var fakeClient = {
+        getAccessToken: function (callback) {
+          callback();
+        }
+      };
+
+      auth.getAuthClient = function (callback) {
+        callback(null, fakeClient);
+      };
+
+      auth.getToken(done);
     });
   });
 });

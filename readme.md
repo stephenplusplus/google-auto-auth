@@ -105,6 +105,25 @@ An API error or an error if scopes are required for the request you're trying to
 
 The reqOpts object provided has been extended with a valid access token attached to the `headers.Authorization` value. E.g.: `headers.Authorization = 'Bearer y.2343...'`.
 
+#### auth.getAuthClient(callback)
+
+Get the auth client instance from [google-auth-library](http://gitnpm.com/googleauth).
+
+##### callback(err, authClient)
+
+###### callback.err
+
+- Type: `Error`
+
+An error that occurred while trying to get an authorization client.
+
+###### callback.authClient
+
+- Type: [`google-auth-library`](http://gitnpm.com/googleauth)
+
+The client instance from [google-auth-library](http://gitnpm.com/googleauth). This is the underlying object this library uses.
+
+
 #### auth.getCredentials(callback)
 
 Get the `client_email` and `private_key` properties from an authorized client.
