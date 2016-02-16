@@ -1,6 +1,6 @@
 {
   "name": "google-auto-auth",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Making it as easy as possible to authenticate a Google API request",
   "main": "index.js",
   "files": [
