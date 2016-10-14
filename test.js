@@ -341,6 +341,58 @@ describe('googleAutoAuth', function () {
     });
   });
 
+  describe('getProjectId', function () {
+    var PROJECT_ID = 'project-id';
+
+    it('should return a project ID if already set', function (done) {
+      auth.getAuthClient = function () {
+        done(); // Will cause the test to blow up
+      };
+
+      auth.projectId = PROJECT_ID;
+
+      auth.getProjectId(function (err, projectId) {
+        assert.ifError(err);
+        assert.strictEqual(projectId, PROJECT_ID);
+        done();
+      });
+    });
+
+    it('should get an auth client', function (done) {
+      auth.getAuthClient = function () {
+        done();
+      };
+
+      auth.getProjectId(assert.ifError);
+    });
+
+    it('should execute callback with error', function (done) {
+      var error = new Error('Error.');
+
+      auth.getAuthClient = function (callback) {
+        callback(error);
+      };
+
+      auth.getProjectId(function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should get a project ID', function (done) {
+      auth.getAuthClient = function (callback) {
+        auth.projectId = PROJECT_ID;
+        callback();
+      };
+
+      auth.getProjectId(function (err, projectId) {
+        assert.ifError(err);
+        assert.strictEqual(projectId, PROJECT_ID);
+        done();
+      });
+    });
+  });
+
   describe('getToken', function () {
     it('should get an auth client', function (done) {
       auth.getAuthClient = function () {

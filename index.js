@@ -53,7 +53,7 @@ Auth.prototype.getAuthClient = function (callback) {
     googleAuth.getApplicationDefault(addScope);
   }
 
-  function addScope(err, authClient) {
+  function addScope(err, authClient, projectId) {
     if (err) {
       callback(err);
       return;
@@ -71,6 +71,8 @@ Auth.prototype.getAuthClient = function (callback) {
     }
 
     self.authClient = authClient;
+    self.projectId = projectId;
+
     callback(null, authClient);
   }
 };
@@ -107,6 +109,27 @@ Auth.prototype.getCredentials = function (callback) {
     });
   });
 };
+
+Auth.prototype.getProjectId = function (callback) {
+  var self = this;
+
+  if (this.projectId) {
+    setImmediate(function () {
+      callback(null, self.projectId);
+    });
+
+    return;
+  }
+
+  this.getAuthClient(function (err) {
+    if (err) {
+      callback(err);
+      return;
+    }
+
+    callback(null, self.projectId);
+  });
+}
 
 Auth.prototype.getToken = function (callback) {
   this.getAuthClient(function (err, client) {

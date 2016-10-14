@@ -33,7 +33,7 @@
     "mockery": "^1.4.0"
   },
   "dependencies": {
-    "google-auth-library": "^0.9.6",
+    "google-auth-library": "^0.9.9",
     "object-assign": "^3.0.0"
   }
 }

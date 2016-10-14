@@ -143,6 +143,25 @@ An error that occurred while trying to get an authorization client.
 An object containing `client_email` and `private_key`.
 
 
+#### auth.getProjectId(callback)
+
+Get the project ID if it was auto-detected or parsed from the provided keyfile.
+
+##### callback(err, projectId)
+
+###### callback.err
+
+- Type: `Error`
+
+An error that occurred while trying to get an authorization client.
+
+###### callback.projectId
+
+- Type: `string`
+
+The project ID that was parsed from the provided keyfile or auto-detected from the environment.
+
+
 #### auth.getToken(callback)
 
 Get an access token. The token will always be current. If necessary, background refreshes are handled automatically.
