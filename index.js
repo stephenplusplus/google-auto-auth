@@ -39,18 +39,20 @@ Auth.prototype.getAuthClient = function (callback) {
     return;
   }
 
-  var googleAuth = new GoogleAuth();
+  if (!config.accessToken) {
+    var googleAuth = new GoogleAuth();
 
-  if (config.keyFilename || config.keyFile) {
-    var authClient = new googleAuth.JWT();
-    authClient.keyFile = config.keyFilename || config.keyFile;
-    authClient.email = config.email;
-    authClient.scopes = config.scopes;
-    addScope(null, authClient);
-  } else if (config.credentials) {
-    googleAuth.fromJSON(config.credentials, addScope);
-  } else {
-    googleAuth.getApplicationDefault(addScope);
+    if (config.keyFilename || config.keyFile) {
+      var authClient = new googleAuth.JWT();
+      authClient.keyFile = config.keyFilename || config.keyFile;
+      authClient.email = config.email;
+      authClient.scopes = config.scopes;
+      addScope(null, authClient);
+    } else if (config.credentials) {
+      googleAuth.fromJSON(config.credentials, addScope);
+    } else {
+      googleAuth.getApplicationDefault(addScope);
+    }
   }
 
   function addScope(err, authClient, projectId) {
@@ -132,6 +134,10 @@ Auth.prototype.getProjectId = function (callback) {
 }
 
 Auth.prototype.getToken = function (callback) {
+  if (this.config.accessToken) {
+    callback(null, this.config.accessToken)
+  }
+
   this.getAuthClient(function (err, client) {
     if (err) {
       callback(err);

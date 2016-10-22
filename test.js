@@ -428,5 +428,16 @@ describe('googleAutoAuth', function () {
 
       auth.getToken(done);
     });
+
+    it('should immediately return an access token if one is configured', function(done) {
+      auth.config = {
+        accessToken: 'immediate_token'
+      };
+
+      auth.getToken(function(err, token) {
+        assert.strictEqual(token, 'immediate_token');
+        done();
+      });
+    });
   });
 });
