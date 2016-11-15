@@ -109,8 +109,76 @@ describe('googleAutoAuth', function () {
       assert.strictEqual(googleAuthLibraryCalled, true);
     });
 
-    it('should create a JWT auth client from a keyFilename', function (done) {
-      var jwt = {};
+    it('should create a google auth client from JSON', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function() {}
+      };
+      var projectId = 'project-id';
+
+      googleAuthLibraryOverride = function () {
+        return {
+          fromJSON: function (json, callback) {
+            assert.deepEqual(json, require(auth.config.keyFile));
+
+            callback(null, googleAuthClient, projectId);
+          }
+        };
+      };
+
+      auth.config = {
+        keyFile: './test.keyfile.json',
+        scopes: ['dev.scope']
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(authClient.scopes, auth.config.scopes);
+        assert.strictEqual(auth.projectId, projectId);
+
+        assert.strictEqual(auth.authClient, googleAuthClient);
+        assert.strictEqual(authClient, googleAuthClient);
+
+        done();
+      });
+    });
+
+    it('should create an auth client from credentials', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function() {}
+      };
+      var projectId = 'project-id';
+
+      googleAuthLibraryOverride = function () {
+        return {
+          fromJSON: function (json, callback) {
+            assert.deepEqual(json, auth.config.credentials);
+
+            callback(null, googleAuthClient, projectId);
+          }
+        };
+      };
+
+      auth.config = {
+        credentials: { a: 'b', c: 'd' }
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(auth.projectId, projectId);
+
+        assert.strictEqual(auth.authClient, googleAuthClient);
+        assert.strictEqual(authClient, googleAuthClient);
+
+        done();
+      });
+    });
+
+    it('should create a JWT auth client from non-JSON', function (done) {
+      var jwt = {
+        createScopedRequired: function() {}
+      };
 
       googleAuthLibraryOverride = function () {
         return {
@@ -119,7 +187,7 @@ describe('googleAutoAuth', function () {
       };
 
       auth.config = {
-        keyFilename: 'key.json',
+        keyFilename: 'key.p12',
         email: 'example@example.com',
         scopes: ['dev.scope']
       };
@@ -131,89 +199,45 @@ describe('googleAutoAuth', function () {
         assert.strictEqual(jwt.email, auth.config.email);
         assert.strictEqual(jwt.scopes, auth.config.scopes);
 
+        assert.strictEqual(auth.authClient, jwt);
         assert.strictEqual(authClient, jwt);
 
-        done();
-      });
-    });
-
-    it('should create a JWT auth client from a keyFile', function (done) {
-      var jwt = {};
-
-      googleAuthLibraryOverride = function () {
-        return {
-          JWT: function () { return jwt; }
-        };
-      };
-
-      auth.config = {
-        keyFile: 'key.json',
-        email: 'example@example.com',
-        scopes: ['dev.scope']
-      };
-
-      auth.getAuthClient(function (err, authClient) {
-        assert.ifError(err);
-
-        assert.strictEqual(jwt.keyFile, auth.config.keyFile);
-        assert.strictEqual(jwt.email, auth.config.email);
-        assert.strictEqual(jwt.scopes, auth.config.scopes);
-
-        assert.strictEqual(authClient, jwt);
-
-        done();
-      });
-    });
-
-    it('should create an auth client from credentials', function (done) {
-      var credentialsSet;
-
-      googleAuthLibraryOverride = function () {
-        return {
-          fromJSON: function (credentials, callback) {
-            credentialsSet = credentials;
-            callback(null, {});
-          }
-        };
-      };
-
-      auth.config = {
-        credentials: { a: 'b', c: 'd' }
-      };
-
-      auth.getAuthClient(function (err) {
-        assert.ifError(err);
-        assert.strictEqual(credentialsSet, auth.config.credentials);
         done();
       });
     });
 
     it('should create an auth client from magic', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function() {}
+      };
+
       googleAuthLibraryOverride = function () {
         return {
           getApplicationDefault: function (callback) {
-            callback(null, {});
+            callback(null, googleAuthClient);
           }
         };
       };
 
-      auth.getAuthClient(done);
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(auth.authClient, googleAuthClient);
+        assert.strictEqual(authClient, googleAuthClient);
+
+        done();
+      });
     });
 
-    it('should scope an auth client if necessary', function (done) {
+    it('should return scope error if necessary', function (done) {
       auth.config = {
-        scopes: ['a.scope', 'b.scope']
+        scopes: []
       };
 
       var fakeAuthClient = {
         createScopedRequired: function () {
           return true;
-        },
-        createScoped: function (scopes) {
-          assert.strictEqual(scopes, auth.config.scopes);
-          return fakeAuthClient;
-        },
-        getAccessToken: function () {}
+        }
       };
 
       googleAuthLibraryOverride = function () {
@@ -224,7 +248,11 @@ describe('googleAutoAuth', function () {
         };
       };
 
-      auth.getAuthClient(done);
+      auth.getAuthClient(function(e) {
+        assert.strictEqual(e.code, 'MISSING_SCOPE');
+        assert.strictEqual(e.message, 'Scopes are required for this request.');
+        done();
+      });
     });
 
     it('should pass back any errors from the authClient', function (done) {
