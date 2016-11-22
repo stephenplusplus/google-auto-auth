@@ -143,6 +143,33 @@ An error that occurred while trying to get an authorization client.
 An object containing `client_email` and `private_key`.
 
 
+#### auth.getEnvironment(callback)
+
+Determine if the environment the app is running in is a Google Compute Engine instance.
+
+##### callback(err, environmentObject)
+
+###### callback.err
+
+- Type: `Null`
+
+We won't return an error, but it's here for convention-sake.
+
+###### callback.environmentObject
+
+- Type: `Object`
+
+```js
+{
+  IS_APP_ENGINE: Boolean,
+  IS_CLOUD_FUNCTION: Boolean,
+  IS_COMPUTE_ENGINE: Boolean
+}
+```
+
+If you've already run this function, the object will persist as `auth.environment`.
+
+
 #### auth.getProjectId(callback)
 
 Get the project ID if it was auto-detected or parsed from the provided keyfile.
@@ -179,3 +206,63 @@ An API error or an error if scopes are required for the request you're trying to
 - Type: `String`
 
 A current access token to be used during an API request.
+
+
+#### auth.isAppEngine(callback)
+
+Determine if the environment the app is running in is a Google App Engine instance.
+
+##### callback(err, isAppEngine)
+
+###### callback.err
+
+- Type: `Null`
+
+We won't return an error, but it's here for convention-sake.
+
+###### callback.isAppEngine
+
+- Type: `Boolean`
+
+Whether the app is in App Engine or not.
+
+
+#### auth.isCloudFunction(callback)
+
+Determine if the environment the app is running in is a Google Cloud Function.
+
+##### callback(err, isCloudFunction)
+
+###### callback.err
+
+- Type: `Null`
+
+We won't return an error, but it's here for convention-sake.
+
+###### callback.isCloudFunction
+
+- Type: `Boolean`
+
+Whether the app is in a Cloud Function or not.
+
+
+#### auth.isComputeEngine(callback)
+
+Determine if the environment the app is running in is a Google Compute Engine instance.
+
+##### callback(err, isComputeEngine)
+
+###### callback.err
+
+- Type: `Null`
+
+We won't return an error, but it's here for convention-sake.
+
+###### callback.isComputeEngine
+
+- Type: `Boolean`
+
+Whether the app is in a Compute Engine instance or not.
+
+
+
