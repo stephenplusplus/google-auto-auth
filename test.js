@@ -11,12 +11,19 @@ function fakeGoogleAuthLibrary() {
     .apply(null, arguments);
 }
 
+var requestOverride;
+function fakeRequest() {
+  return (requestOverride || function () {}).apply(null, arguments);
+}
+
 describe('googleAutoAuth', function () {
   var googleAutoAuth;
   var auth;
 
   before(function () {
     mockery.registerMock('google-auth-library', fakeGoogleAuthLibrary);
+    mockery.registerMock('request', fakeRequest);
+
     mockery.enable({
       useCleanCache: true,
       warnOnUnregistered: false
@@ -31,6 +38,7 @@ describe('googleAutoAuth', function () {
   });
 
   beforeEach(function () {
+    requestOverride = null;
     googleAuthLibraryOverride = null;
     auth = googleAutoAuth();
   });
@@ -111,7 +119,7 @@ describe('googleAutoAuth', function () {
 
     it('should create a google auth client from JSON', function (done) {
       var googleAuthClient = {
-        createScopedRequired: function() {}
+        createScopedRequired: function () {}
       };
       var projectId = 'project-id';
 
@@ -145,7 +153,7 @@ describe('googleAutoAuth', function () {
 
     it('should create an auth client from credentials', function (done) {
       var googleAuthClient = {
-        createScopedRequired: function() {}
+        createScopedRequired: function () {}
       };
       var projectId = 'project-id';
 
@@ -177,7 +185,7 @@ describe('googleAutoAuth', function () {
 
     it('should create a JWT auth client from non-JSON', function (done) {
       var jwt = {
-        createScopedRequired: function() {}
+        createScopedRequired: function () {}
       };
 
       googleAuthLibraryOverride = function () {
@@ -208,7 +216,7 @@ describe('googleAutoAuth', function () {
 
     it('should create an auth client from magic', function (done) {
       var googleAuthClient = {
-        createScopedRequired: function() {}
+        createScopedRequired: function () {}
       };
 
       googleAuthLibraryOverride = function () {
@@ -248,7 +256,7 @@ describe('googleAutoAuth', function () {
         };
       };
 
-      auth.getAuthClient(function(e) {
+      auth.getAuthClient(function (e) {
         assert.strictEqual(e.code, 'MISSING_SCOPE');
         assert.strictEqual(e.message, 'Scopes are required for this request.');
         done();
@@ -312,12 +320,12 @@ describe('googleAutoAuth', function () {
       });
     });
 
-    it('should return error if authorize is not available', function(done) {
+    it('should return error if authorize is not available', function (done) {
       auth.getAuthClient = function (callback) {
         callback(null, {});
       };
 
-      auth.getCredentials(function(err) {
+      auth.getCredentials(function (err) {
         assert.strictEqual(err.message, 'Could not get credentials without a JSON, pem, or p12 keyfile.');
         done();
       });
@@ -366,6 +374,28 @@ describe('googleAutoAuth', function () {
       };
 
       auth.getCredentials(assert.ifError);
+    });
+  });
+
+  describe('getEnvironment', function () {
+    it('should call all environment detection methods', function (done) {
+      auth.isAppEngine = function (callback) {
+        callback();
+      };
+
+      auth.isCloudFunction = function (callback) {
+        callback();
+      };
+
+      auth.isComputeEngine = function (callback) {
+        callback();
+      };
+
+      auth.getEnvironment(function (err, environment) {
+        assert.ifError(err);
+        assert.strictEqual(environment, auth.environment);
+        done();
+      });
     });
   });
 
@@ -455,6 +485,143 @@ describe('googleAutoAuth', function () {
       };
 
       auth.getToken(done);
+    });
+  });
+
+  describe('isAppEngine', function () {
+    var ENV_VARS = [
+      'GAE_SERVICE',
+      'GAE_MODULE_NAME'
+    ];
+
+    afterEach(function () {
+      ENV_VARS.forEach(function (envVarName) {
+        delete process.env[envVarName];
+      });
+    });
+
+    it('should return false without env vars sets', function (done) {
+      auth.isAppEngine(function (err, isAppEngine) {
+        assert.ifError(err);
+        assert.strictEqual(isAppEngine, false);
+        done();
+      });
+    });
+
+    it('should detect GAE_SERVICE', function (done) {
+      process.env.GAE_SERVICE = 'service-name';
+
+      assert.strictEqual(auth.environment.IS_APP_ENGINE, undefined);
+
+      auth.isAppEngine(function (err, isAppEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_APP_ENGINE, true);
+        assert.strictEqual(isAppEngine, true);
+        done();
+      });
+    });
+
+    it('should detect GAE_MODULE_NAME', function (done) {
+      process.env.GAE_MODULE_NAME = 'module-name';
+
+      assert.strictEqual(auth.environment.IS_APP_ENGINE, undefined);
+
+      auth.isAppEngine(function (err, isAppEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_APP_ENGINE, true);
+        assert.strictEqual(isAppEngine, true);
+        done();
+      });
+    });
+  });
+
+  describe('isCloudFunction', function () {
+    var ENV_VARS = [
+      'FUNCTION_NAME'
+    ];
+
+    afterEach(function () {
+      ENV_VARS.forEach(function (envVarName) {
+        delete process.env[envVarName];
+      });
+    });
+
+    it('should return false without env vars sets', function (done) {
+      auth.isCloudFunction(function (err, isCloudFunction) {
+        assert.ifError(err);
+        assert.strictEqual(isCloudFunction, false);
+        done();
+      });
+    });
+
+    it('should detect FUNCTION_NAME', function (done) {
+      process.env.FUNCTION_NAME = 'function-name';
+
+      assert.strictEqual(auth.environment.IS_CLOUD_FUNCTION, undefined);
+
+      auth.isCloudFunction(function (err, isCloudFunction) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_CLOUD_FUNCTION, true);
+        assert.strictEqual(isCloudFunction, true);
+        done();
+      });
+    });
+  });
+
+  describe('isComputeEngine', function () {
+    it('should return an existing value', function (done) {
+      requestOverride = done; // will make test fail if called
+
+      auth.environment.IS_COMPUTE_ENGINE = 'test';
+
+      auth.isComputeEngine(function (err, isComputeEngine) {
+        assert.ifError(err);
+        assert.strictEqual(isComputeEngine, 'test');
+        done();
+      });
+    });
+
+    it('should make the correct request', function (done) {
+      requestOverride = function (uri) {
+        assert.strictEqual(uri, 'http://metadata.google.internal');
+        done();
+      };
+
+      auth.isComputeEngine(assert.ifError);
+    });
+
+    it('should set false if request errors', function (done) {
+      requestOverride = function (uri, callback) {
+        callback(new Error(':('));
+      };
+
+      assert.strictEqual(auth.environment.IS_COMPUTE_ENGINE, undefined);
+
+      auth.isComputeEngine(function (err, isComputeEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_COMPUTE_ENGINE, false);
+        assert.strictEqual(isComputeEngine, false);
+        done();
+      });
+    });
+
+    it('should set true if header matches', function (done) {
+      requestOverride = function (uri, callback) {
+        callback(null, null, {
+          headers: {
+            'metadata-flavor': 'Google'
+          }
+        });
+      };
+
+      assert.strictEqual(auth.environment.IS_COMPUTE_ENGINE, undefined);
+
+      auth.isComputeEngine(function (err, isComputeEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_COMPUTE_ENGINE, true);
+        assert.strictEqual(isComputeEngine, true);
+        done();
+      });
     });
   });
 });

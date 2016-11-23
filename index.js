@@ -1,8 +1,10 @@
 'use strict';
 
 var assign = require('object-assign');
+var async = require('async');
 var GoogleAuth = require('google-auth-library');
 var path = require('path');
+var request = require('request');
 
 function Auth(config) {
   if (!(this instanceof Auth)) {
@@ -11,6 +13,7 @@ function Auth(config) {
 
   this.authClient = null;
   this.config = config || {};
+  this.environment = {};
 }
 
 Auth.prototype.authorizeRequest = function (reqOpts, callback) {
@@ -110,6 +113,18 @@ Auth.prototype.getCredentials = function (callback) {
   });
 };
 
+Auth.prototype.getEnvironment = function (callback) {
+  var self = this;
+
+  async.parallel([
+    this.isAppEngine.bind(this),
+    this.isCloudFunction.bind(this),
+    this.isComputeEngine.bind(this)
+  ], function () {
+    callback(null, self.environment);
+  });
+};
+
 Auth.prototype.getProjectId = function (callback) {
   var self = this;
 
@@ -139,6 +154,49 @@ Auth.prototype.getToken = function (callback) {
     }
 
     client.getAccessToken(callback);
+  });
+};
+
+Auth.prototype.isAppEngine = function (callback) {
+  var self = this;
+
+  setImmediate(function () {
+    if (typeof self.environment.IS_APP_ENGINE === 'undefined') {
+      self.environment.IS_APP_ENGINE =
+        !!(process.env.GAE_SERVICE || process.env.GAE_MODULE_NAME);
+    }
+
+    callback(null, self.environment.IS_APP_ENGINE);
+  });
+};
+
+Auth.prototype.isCloudFunction = function (callback) {
+  var self = this;
+
+  setImmediate(function () {
+    if (typeof self.environment.IS_CLOUD_FUNCTION === 'undefined') {
+      self.environment.IS_CLOUD_FUNCTION = !!process.env.FUNCTION_NAME;
+    }
+
+    callback(null, self.environment.IS_CLOUD_FUNCTION);
+  });
+};
+
+Auth.prototype.isComputeEngine = function (callback) {
+  var self = this;
+
+  if (typeof this.environment.IS_COMPUTE_ENGINE !== 'undefined') {
+    setImmediate(function () {
+      callback(null, self.environment.IS_COMPUTE_ENGINE);
+    });
+    return;
+  }
+
+  request('http://metadata.google.internal', function (err, body, res) {
+    self.environment.IS_COMPUTE_ENGINE =
+      !err && res.headers['metadata-flavor'] === 'Google';
+
+    callback(null, self.environment.IS_COMPUTE_ENGINE);
   });
 };
 
