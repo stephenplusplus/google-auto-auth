@@ -607,7 +607,7 @@ describe('googleAutoAuth', function () {
 
     it('should set true if header matches', function (done) {
       requestOverride = function (uri, callback) {
-        callback(null, null, {
+        callback(null, {
           headers: {
             'metadata-flavor': 'Google'
           }

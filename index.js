@@ -192,7 +192,7 @@ Auth.prototype.isComputeEngine = function (callback) {
     return;
   }
 
-  request('http://metadata.google.internal', function (err, body, res) {
+  request('http://metadata.google.internal', function (err, res) {
     self.environment.IS_COMPUTE_ENGINE =
       !err && res.headers['metadata-flavor'] === 'Google';
 
