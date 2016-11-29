@@ -94,6 +94,10 @@ describe('googleAutoAuth', function () {
   });
 
   describe('getAuthClient', function () {
+    beforeEach(function() {
+      process.chdir(__dirname);
+    });
+
     it('should re-use an existing authClient', function (done) {
       auth.authClient = { a: 'b', c: 'd' };
 
@@ -118,6 +122,13 @@ describe('googleAutoAuth', function () {
     });
 
     it('should create a google auth client from JSON', function (done) {
+      auth.config = {
+        keyFile: '../test.keyfile.json',
+        scopes: ['dev.scope']
+      };
+
+      var expectedJson = require('./test.keyfile.json');
+
       var googleAuthClient = {
         createScopedRequired: function () {}
       };
@@ -126,17 +137,15 @@ describe('googleAutoAuth', function () {
       googleAuthLibraryOverride = function () {
         return {
           fromJSON: function (json, callback) {
-            assert.deepEqual(json, require(auth.config.keyFile));
+            assert.deepEqual(json, expectedJson);
 
             callback(null, googleAuthClient, projectId);
           }
         };
       };
 
-      auth.config = {
-        keyFile: './test.keyfile.json',
-        scopes: ['dev.scope']
-      };
+      // to test that `path.resolve` is being used
+      process.chdir('node_modules');
 
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);

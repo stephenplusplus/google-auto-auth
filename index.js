@@ -47,7 +47,13 @@ Auth.prototype.getAuthClient = function (callback) {
   var keyFile = config.keyFilename || config.keyFile;
 
   if (config.credentials || keyFile && path.extname(keyFile) === '.json') {
-    googleAuth.fromJSON(config.credentials || require(keyFile), addScope);
+    var json = config.credentials;
+
+    if (!json) {
+      json = require(path.resolve(process.cwd(), keyFile));
+    }
+
+    googleAuth.fromJSON(json, addScope);
   } else if (keyFile) {
     var authClient = new googleAuth.JWT();
     authClient.keyFile = keyFile;
