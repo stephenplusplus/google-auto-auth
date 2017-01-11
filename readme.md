@@ -81,6 +81,7 @@ Everything from the [gcloud-node Authentication Guide](https://googlecloudplatfo
 
 At a glance, the supported properties for this method are:
 
+- `apiKey` - An API key
 - `keyFilename` - Path to a .json, .pem, or .p12 key file
 - `credentials` - Object containing `client_email` and `private_key` properties
 - `scopes` - Required scopes for the desired API request
@@ -263,6 +264,3 @@ We won't return an error, but it's here for convention-sake.
 - Type: `Boolean`
 
 Whether the app is in a Compute Engine instance or not.
-
-
-
