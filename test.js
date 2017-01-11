@@ -223,6 +223,38 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should create an auth client from an API key', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function () {}
+      };
+      var projectId = 'project-id';
+
+      googleAuthLibraryOverride = function () {
+        return {
+          fromAPIKey: function (apiKey, callback) {
+            assert.deepEqual(apiKey, auth.config.apiKey);
+
+            callback(null, googleAuthClient, projectId);
+          }
+        };
+      };
+
+      auth.config = {
+        apiKey: 'api-key'
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(auth.projectId, projectId);
+
+        assert.strictEqual(auth.authClient, googleAuthClient);
+        assert.strictEqual(authClient, googleAuthClient);
+
+        done();
+      });
+    });
+
     it('should create an auth client from magic', function (done) {
       var googleAuthClient = {
         createScopedRequired: function () {}

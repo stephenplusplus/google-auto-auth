@@ -33,7 +33,7 @@ Auth.prototype.authorizeRequest = function (reqOpts, callback) {
 
 Auth.prototype.getAuthClient = function (callback) {
   var self = this;
-  var config = self.config;
+  var config = this.config;
 
   if (this.authClient) {
     setImmediate(function () {
@@ -59,6 +59,8 @@ Auth.prototype.getAuthClient = function (callback) {
     authClient.keyFile = keyFile;
     authClient.email = config.email;
     addScope(null, authClient);
+  } else if (config.apiKey) {
+    googleAuth.fromAPIKey(config.apiKey, addScope);
   } else {
     googleAuth.getApplicationDefault(addScope);
   }
