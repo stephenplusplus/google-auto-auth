@@ -37,61 +37,58 @@ Auth.prototype.getAuthClient = function (callback) {
   var config = self.config;
 
   if (!this.authClientPromise) {
-    this.authClientPromise =
-        this.authClient ?
-            Promise.resolve(this.authClient) :
-            new Promise(function(resolve, reject) {
-              var googleAuth = new GoogleAuth();
-              var keyFile = config.keyFilename || config.keyFile;
-
-              if (config.credentials ||
-                  keyFile && path.extname(keyFile) === '.json') {
-                var json = config.credentials;
-
-                if (!json) {
-                  json = require(path.resolve(process.cwd(), keyFile));
-                }
-
-                googleAuth.fromJSON(json, addScope);
-              } else if (keyFile) {
-                var authClient = new googleAuth.JWT();
-                authClient.keyFile = keyFile;
-                authClient.email = config.email;
-                addScope(null, authClient);
-              } else {
-                googleAuth.getApplicationDefault(addScope);
-              }
-
-              function addScope(err, authClient, projectId) {
-                if (err) {
-                  reject(err);
-                  return;
-                }
-
-                if (authClient.createScopedRequired &&
-                    authClient.createScopedRequired()) {
-                  if (!config.scopes || config.scopes.length === 0) {
-                    var scopeError =
-                        new Error('Scopes are required for this request.');
-                    scopeError.code = 'MISSING_SCOPE';
-                    reject(scopeError);
-                    return;
-                  }
-                }
-
-                authClient.scopes = config.scopes;
-                self.authClient = authClient;
-                self.projectId = projectId || authClient.projectId;
-
-                resolve(authClient);
-              }
-            });
+    if (this.authClient) {
+      this.authClientPromise = Promise.resolve(this.authClient);
+    } else {
+      this.authClientPromise = new Promise(createAuthClientPromise);
+    }
   }
 
-  return this.authClientPromise.then(function(authClient) {
-                                 callback(null, authClient);
-                               })
-      .catch(callback);
+  this.authClientPromise.then(callback.bind(null, null)).catch(callback);
+
+  function createAuthClientPromise(resolve, reject) {
+    var googleAuth = new GoogleAuth();
+    var keyFile = config.keyFilename || config.keyFile;
+
+    if (config.credentials || keyFile && path.extname(keyFile) === '.json') {
+      var json = config.credentials;
+
+      if (!json) {
+        json = require(path.resolve(process.cwd(), keyFile));
+      }
+
+      googleAuth.fromJSON(json, addScope);
+    } else if (keyFile) {
+      var authClient = new googleAuth.JWT();
+      authClient.keyFile = keyFile;
+      authClient.email = config.email;
+      addScope(null, authClient);
+    } else {
+      googleAuth.getApplicationDefault(addScope);
+    }
+
+    function addScope(err, authClient, projectId) {
+      if (err) {
+        reject(err);
+        return;
+      }
+
+      if (authClient.createScopedRequired && authClient.createScopedRequired()) {
+        if (!config.scopes || config.scopes.length === 0) {
+          var scopeError = new Error('Scopes are required for this request.');
+          scopeError.code = 'MISSING_SCOPE';
+          reject(scopeError);
+          return;
+        }
+      }
+
+      authClient.scopes = config.scopes;
+      self.authClient = authClient;
+      self.projectId = projectId || authClient.projectId;
+
+      resolve(authClient);
+    }
+  }
 };
 
 Auth.prototype.getCredentials = function (callback) {

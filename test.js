@@ -103,10 +103,13 @@ describe('googleAutoAuth', function () {
 
       auth.getAuthClient(function (err, authClient) {
         assert.strictEqual(authClient, auth.authClient);
-        auth.authClientPromise.then(function(authClientFromPromise) {
-          assert.strictEqual(authClientFromPromise, authClient);
-        });
-        done();
+
+        auth.authClientPromise
+          .then(function (authClientFromPromise) {
+            assert.strictEqual(authClientFromPromise, authClient);
+            done();
+          })
+          .catch(done);
       });
     });
 
@@ -114,6 +117,7 @@ describe('googleAutoAuth', function () {
       auth.authClientPromise = Promise.resolve(42);
 
       auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
         assert.strictEqual(authClient, 42);
         done();
       });
