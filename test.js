@@ -94,7 +94,7 @@ describe('googleAutoAuth', function () {
   });
 
   describe('getAuthClient', function () {
-    beforeEach(function() {
+    beforeEach(function () {
       process.chdir(__dirname);
     });
 
@@ -113,7 +113,7 @@ describe('googleAutoAuth', function () {
       });
     });
 
-    it('should re-use an existing authClientPromise', function(done) {
+    it('should re-use an existing authClientPromise', function (done) {
       auth.authClientPromise = Promise.resolve(42);
 
       auth.getAuthClient(function (err, authClient) {
