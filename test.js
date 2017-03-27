@@ -16,6 +16,13 @@ function fakeRequest() {
   return (requestOverride || function () {}).apply(null, arguments);
 }
 
+var instanceOverride;
+var fakeGcpMetadata = {
+  instance: function () {
+    return (instanceOverride || function () {}).apply(null, arguments);
+  }
+};
+
 describe('googleAutoAuth', function () {
   var googleAutoAuth;
   var auth;
@@ -23,6 +30,7 @@ describe('googleAutoAuth', function () {
   before(function () {
     mockery.registerMock('google-auth-library', fakeGoogleAuthLibrary);
     mockery.registerMock('request', fakeRequest);
+    mockery.registerMock('gcp-metadata', fakeGcpMetadata);
 
     mockery.enable({
       useCleanCache: true,
@@ -40,6 +48,7 @@ describe('googleAutoAuth', function () {
   beforeEach(function () {
     requestOverride = null;
     googleAuthLibraryOverride = null;
+    instanceOverride = null
     auth = googleAutoAuth();
   });
 
@@ -416,6 +425,10 @@ describe('googleAutoAuth', function () {
         callback();
       };
 
+      auth.isContainerEngine = function (callback) {
+        callback();
+      };
+
       auth.getEnvironment(function (err, environment) {
         assert.ifError(err);
         assert.strictEqual(environment, auth.environment);
@@ -645,6 +658,59 @@ describe('googleAutoAuth', function () {
         assert.ifError(err);
         assert.strictEqual(auth.environment.IS_COMPUTE_ENGINE, true);
         assert.strictEqual(isComputeEngine, true);
+        done();
+      });
+    });
+  });
+
+  describe('isContainerEngine', function () {
+    it('should return an existing value', function (done) {
+      requestOverride = done; // will make test fail if called
+
+      auth.environment.IS_CONTAINER_ENGINE = 'test';
+
+      auth.isContainerEngine(function (err, isContainerEngine) {
+        assert.ifError(err);
+        assert.strictEqual(isContainerEngine, 'test');
+        done();
+      });
+    });
+
+    it('should make the correct metadata lookup', function (done) {
+      instanceOverride = function (property, callback) {
+        assert.strictEqual(property, '/attributes/cluster-name');
+        done();
+      }
+
+      auth.isContainerEngine(assert.ifError);
+    });
+
+    it('should set false if instance request errors', function (done) {
+      instanceOverride = function (property, callback) {
+        callback(new Error(':('));
+      };
+
+      assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
+
+      auth.isContainerEngine(function (err, isContainerEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, false);
+        assert.strictEqual(isContainerEngine, false);
+        done();
+      });
+    });
+
+    it('should set true if instance request succeeds', function (done) {
+      instanceOverride = function (property, callback) {
+        callback(null);
+      };
+
+      assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
+
+      auth.isContainerEngine(function (err, isContainerEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, true);
+        assert.strictEqual(isContainerEngine, true);
         done();
       });
     });
