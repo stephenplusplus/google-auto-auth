@@ -3,6 +3,7 @@
 var assign = require('object-assign');
 var async = require('async');
 var GoogleAuth = require('google-auth-library');
+var gcpMetadata = require('gcp-metadata');
 var path = require('path');
 var request = require('request');
 
@@ -130,7 +131,8 @@ Auth.prototype.getEnvironment = function (callback) {
   async.parallel([
     this.isAppEngine.bind(this),
     this.isCloudFunction.bind(this),
-    this.isComputeEngine.bind(this)
+    this.isComputeEngine.bind(this),
+    this.isContainerEngine.bind(this)
   ], function () {
     callback(null, self.environment);
   });
@@ -208,6 +210,23 @@ Auth.prototype.isComputeEngine = function (callback) {
       !err && res.headers['metadata-flavor'] === 'Google';
 
     callback(null, self.environment.IS_COMPUTE_ENGINE);
+  });
+};
+
+Auth.prototype.isContainerEngine = function (callback) {
+  var self = this;
+
+  if (typeof this.environment.IS_CONTAINER_ENGINE !== 'undefined') {
+    setImmediate(function () {
+      callback(null, self.environment.IS_CONTAINER_ENGINE);
+    });
+    return;
+  }
+
+  gcpMetadata.instance('/attributes/cluster-name', function (err, res) {
+    self.environment.IS_CONTAINER_ENGINE = !err;
+
+    callback(null, self.environment.IS_CONTAINER_ENGINE);
   });
 };
 

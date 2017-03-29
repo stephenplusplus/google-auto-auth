@@ -163,7 +163,8 @@ We won't return an error, but it's here for convention-sake.
 {
   IS_APP_ENGINE: Boolean,
   IS_CLOUD_FUNCTION: Boolean,
-  IS_COMPUTE_ENGINE: Boolean
+  IS_COMPUTE_ENGINE: Boolean,
+  IS_CONTAINER_ENGINE: Boolean
 }
 ```
 
@@ -265,4 +266,20 @@ We won't return an error, but it's here for convention-sake.
 Whether the app is in a Compute Engine instance or not.
 
 
+#### auth.isContainerEngine(callback)
 
+Determine if the environment the app is running in is a Google Container Engine instance.
+
+##### callback(err, isContainerEngine)
+
+###### callback.err
+
+- Type: `Null`
+
+We won't return an error, but it's here for convention-sake.
+
+###### callback.isContainerEngine
+
+- Type: `Boolean`
+
+Whether the app is in a Container Engine instance or not.
