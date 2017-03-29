@@ -665,7 +665,7 @@ describe('googleAutoAuth', function () {
 
   describe('isContainerEngine', function () {
     it('should return an existing value', function (done) {
-      requestOverride = done; // will make test fail if called
+      instanceOverride = done; // will make test fail if called
 
       auth.environment.IS_CONTAINER_ENGINE = 'test';
 
@@ -680,7 +680,7 @@ describe('googleAutoAuth', function () {
       instanceOverride = function (property, callback) {
         assert.strictEqual(property, '/attributes/cluster-name');
         done();
-      }
+      };
 
       auth.isContainerEngine(assert.ifError);
     });
