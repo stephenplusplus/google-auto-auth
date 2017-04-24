@@ -2,6 +2,7 @@
 
 var assign = require('object-assign');
 var async = require('async');
+var fs = require('fs');
 var GoogleAuth = require('google-auth-library');
 var gcpMetadata = require('gcp-metadata');
 var path = require('path');
@@ -51,19 +52,26 @@ Auth.prototype.getAuthClient = function (callback) {
     var googleAuth = new GoogleAuth();
     var keyFile = config.keyFilename || config.keyFile;
 
-    if (config.credentials || keyFile && path.extname(keyFile) === '.json') {
-      var json = config.credentials;
-
-      if (!json) {
-        json = require(path.resolve(process.cwd(), keyFile));
-      }
-
-      googleAuth.fromJSON(json, addScope);
+    if (config.credentials) {
+      googleAuth.fromJSON(config.credentials, addScope);
     } else if (keyFile) {
-      var authClient = new googleAuth.JWT();
-      authClient.keyFile = keyFile;
-      authClient.email = config.email;
-      addScope(null, authClient);
+      keyFile = path.resolve(process.cwd(), keyFile);
+
+      fs.readFile(keyFile, function (err, contents) {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        try {
+          googleAuth.fromJSON(JSON.parse(contents), addScope);
+        } catch(e) {
+          var authClient = new googleAuth.JWT();
+          authClient.keyFile = keyFile;
+          authClient.email = config.email;
+          addScope(null, authClient);
+        }
+      });
     } else {
       googleAuth.getApplicationDefault(addScope);
     }
@@ -223,7 +231,7 @@ Auth.prototype.isContainerEngine = function (callback) {
     return;
   }
 
-  gcpMetadata.instance('/attributes/cluster-name', function (err, res) {
+  gcpMetadata.instance('/attributes/cluster-name', function (err) {
     self.environment.IS_CONTAINER_ENGINE = !err;
 
     callback(null, self.environment.IS_CONTAINER_ENGINE);
