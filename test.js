@@ -2,8 +2,10 @@
 
 var assert = require('assert');
 var assign = require('object-assign');
+var fs = require('fs');
 var googleAuthLibrary = require('google-auth-library');
 var mockery = require('mockery');
+var path = require('path');
 
 var googleAuthLibraryOverride;
 function fakeGoogleAuthLibrary() {
@@ -185,6 +187,45 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should see if a file reads as JSON', function(done) {
+      auth.config = {
+        keyFile: '../test.keyfile',
+        scopes: ['dev.scope']
+      };
+
+      var expectedJson = JSON.parse(fs.readFileSync('./test.keyfile'));
+
+      var googleAuthClient = {
+        createScopedRequired: function () {}
+      };
+      var projectId = 'project-id';
+
+      googleAuthLibraryOverride = function () {
+        return {
+          fromJSON: function (json, callback) {
+            assert.deepEqual(json, expectedJson);
+
+            callback(null, googleAuthClient, projectId);
+          }
+        };
+      };
+
+      // to test that `path.resolve` is being used
+      process.chdir('node_modules');
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(authClient.scopes, auth.config.scopes);
+        assert.strictEqual(auth.projectId, projectId);
+
+        assert.strictEqual(auth.authClient, googleAuthClient);
+        assert.strictEqual(authClient, googleAuthClient);
+
+        done();
+      });
+    });
+
     it('should create an auth client from credentials', function (done) {
       var googleAuthClient = {
         createScopedRequired: function () {}
@@ -217,6 +258,19 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should return error if file does not exist', function (done) {
+      googleAuthLibraryOverride = function () {};
+
+      auth.config = {
+        keyFilename: 'non-existent-key.pem'
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert(err.message.includes('no such file or directory'));
+        done();
+      });
+    });
+
     it('should create a JWT auth client from non-JSON', function (done) {
       var jwt = {
         createScopedRequired: function () {}
@@ -229,15 +283,18 @@ describe('googleAutoAuth', function () {
       };
 
       auth.config = {
-        keyFilename: 'key.p12',
+        keyFilename: './test.keyfile.pem',
         email: 'example@example.com',
         scopes: ['dev.scope']
       };
 
+
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
 
-        assert.strictEqual(jwt.keyFile, auth.config.keyFilename);
+        var expectedKey = path.resolve(process.cwd(), auth.config.keyFilename);
+        assert.strictEqual(jwt.keyFile, expectedKey);
+
         assert.strictEqual(jwt.email, auth.config.email);
         assert.strictEqual(jwt.scopes, auth.config.scopes);
 
