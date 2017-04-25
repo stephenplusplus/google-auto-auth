@@ -29,14 +29,16 @@
   "repository": "stephenplusplus/google-auto-auth",
   "license": "MIT",
   "devDependencies": {
-    "mocha": "^2.2.5",
-    "mockery": "^1.4.0"
+    "mocha": "^3.3.0",
+    "mockery": "^2.0.0"
   },
   "dependencies": {
-    "async": "^2.1.2",
+    "async": "^2.3.0",
     "gcp-metadata": "^0.2.0",
     "google-auth-library": "^0.10.0",
-    "object-assign": "^3.0.0",
     "request": "^2.79.0"
+  },
+  "engines": {
+    "node": ">=0.4.0"
   }
 }

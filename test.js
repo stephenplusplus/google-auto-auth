@@ -1,7 +1,6 @@
 'use strict';
 
 var assert = require('assert');
-var assign = require('object-assign');
 var fs = require('fs');
 var googleAuthLibrary = require('google-auth-library');
 var mockery = require('mockery');
@@ -50,7 +49,7 @@ describe('googleAutoAuth', function () {
   beforeEach(function () {
     requestOverride = null;
     googleAuthLibraryOverride = null;
-    instanceOverride = null
+    instanceOverride = null;
     auth = googleAutoAuth();
   });
 
@@ -87,10 +86,10 @@ describe('googleAutoAuth', function () {
         }
       };
 
-      var expectedAuthorizedReqOpts = assign({}, reqOpts);
-      expectedAuthorizedReqOpts.headers = assign(reqOpts.headers, {
-        Authorization: 'Bearer ' + token
-      });
+      var expectedAuthorizedReqOpts = Object.assign({}, reqOpts);
+      expectedAuthorizedReqOpts.headers = Object.assign({
+        Authorization: `Bearer ${token}`
+      }, reqOpts.headers);
 
       auth.getToken = function (callback) {
         callback(null, token);
@@ -98,6 +97,8 @@ describe('googleAutoAuth', function () {
 
       auth.authorizeRequest(reqOpts, function (err, authorizedReqOpts) {
         assert.ifError(err);
+        assert.notStrictEqual(authorizedReqOpts, reqOpts);
+        assert.notDeepEqual(authorizedReqOpts, reqOpts);
         assert.deepEqual(authorizedReqOpts, expectedAuthorizedReqOpts);
         done();
       });
@@ -265,7 +266,7 @@ describe('googleAutoAuth', function () {
         keyFilename: 'non-existent-key.pem'
       };
 
-      auth.getAuthClient(function (err, authClient) {
+      auth.getAuthClient(function (err) {
         assert(err.message.includes('no such file or directory'));
         done();
       });
@@ -734,7 +735,7 @@ describe('googleAutoAuth', function () {
     });
 
     it('should make the correct metadata lookup', function (done) {
-      instanceOverride = function (property, callback) {
+      instanceOverride = function (property) {
         assert.strictEqual(property, '/attributes/cluster-name');
         done();
       };

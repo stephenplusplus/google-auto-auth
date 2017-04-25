@@ -1,6 +1,5 @@
 'use strict';
 
-var assign = require('object-assign');
 var async = require('async');
 var fs = require('fs');
 var GoogleAuth = require('google-auth-library');
@@ -26,9 +25,11 @@ Auth.prototype.authorizeRequest = function (reqOpts, callback) {
       return;
     }
 
-    var authorizedReqOpts = assign({}, reqOpts);
-    authorizedReqOpts.headers = authorizedReqOpts.headers || {};
-    authorizedReqOpts.headers.Authorization = 'Bearer ' + token;
+    var authorizedReqOpts = Object.assign({}, reqOpts, {
+      headers: Object.assign({}, reqOpts.headers, {
+        Authorization: `Bearer ${token}`
+      })
+    });
 
     callback(null, authorizedReqOpts);
   });
