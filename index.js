@@ -1,6 +1,5 @@
 'use strict';
 
-var assign = require('object-assign');
 var async = require('async');
 var fs = require('fs');
 var GoogleAuth = require('google-auth-library');
@@ -8,234 +7,226 @@ var gcpMetadata = require('gcp-metadata');
 var path = require('path');
 var request = require('request');
 
-function Auth(config) {
-  if (!(this instanceof Auth)) {
-    return new Auth(config);
+class Auth {
+  constructor(config) {
+    this.authClientPromise = null;
+    this.authClient = null;
+    this.config = config || {};
+    this.environment = {};
   }
 
-  this.authClientPromise = null;
-  this.authClient = null;
-  this.config = config || {};
-  this.environment = {};
-}
-
-Auth.prototype.authorizeRequest = function (reqOpts, callback) {
-  this.getToken(function (err, token) {
-    if (err) {
-      callback(err);
-      return;
-    }
-
-    var authorizedReqOpts = assign({}, reqOpts);
-    authorizedReqOpts.headers = authorizedReqOpts.headers || {};
-    authorizedReqOpts.headers.Authorization = 'Bearer ' + token;
-
-    callback(null, authorizedReqOpts);
-  });
-};
-
-Auth.prototype.getAuthClient = function (callback) {
-  var self = this;
-  var config = self.config;
-
-  if (!this.authClientPromise) {
-    if (this.authClient) {
-      this.authClientPromise = Promise.resolve(this.authClient);
-    } else {
-      this.authClientPromise = new Promise(createAuthClientPromise);
-    }
-  }
-
-  this.authClientPromise.then(callback.bind(null, null)).catch(callback);
-
-  function createAuthClientPromise(resolve, reject) {
-    var googleAuth = new GoogleAuth();
-    var keyFile = config.keyFilename || config.keyFile;
-
-    if (config.credentials) {
-      googleAuth.fromJSON(config.credentials, addScope);
-    } else if (keyFile) {
-      keyFile = path.resolve(process.cwd(), keyFile);
-
-      fs.readFile(keyFile, function (err, contents) {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        try {
-          googleAuth.fromJSON(JSON.parse(contents), addScope);
-        } catch(e) {
-          var authClient = new googleAuth.JWT();
-          authClient.keyFile = keyFile;
-          authClient.email = config.email;
-          addScope(null, authClient);
-        }
-      });
-    } else {
-      googleAuth.getApplicationDefault(addScope);
-    }
-
-    function addScope(err, authClient, projectId) {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      if (authClient.createScopedRequired && authClient.createScopedRequired()) {
-        if (!config.scopes || config.scopes.length === 0) {
-          var scopeError = new Error('Scopes are required for this request.');
-          scopeError.code = 'MISSING_SCOPE';
-          reject(scopeError);
-          return;
-        }
-      }
-
-      authClient.scopes = config.scopes;
-      self.authClient = authClient;
-      self.projectId = projectId || authClient.projectId;
-
-      resolve(authClient);
-    }
-  }
-};
-
-Auth.prototype.getCredentials = function (callback) {
-  var self = this;
-
-  this.getAuthClient(function (err, client) {
-    if (err) {
-      callback(err);
-      return;
-    }
-
-    if (client.email && client.key) {
-      callback(null, {
-        client_email: client.email,
-        private_key: client.key
-      });
-      return;
-    }
-
-    if (!client.authorize) {
-      callback(new Error('Could not get credentials without a JSON, pem, or p12 keyfile.'));
-      return;
-    }
-
-    client.authorize(function (err) {
+  authorizeRequest (reqOpts, callback) {
+    this.getToken((err, token) => {
       if (err) {
         callback(err);
         return;
       }
 
-      self.getCredentials(callback);
+      var authorizedReqOpts = Object.assign({}, reqOpts, {
+        headers: Object.assign({}, reqOpts.headers, {
+          Authorization: `Bearer ${token}`
+        })
+      });
+
+      callback(null, authorizedReqOpts);
     });
-  });
-};
-
-Auth.prototype.getEnvironment = function (callback) {
-  var self = this;
-
-  async.parallel([
-    this.isAppEngine.bind(this),
-    this.isCloudFunction.bind(this),
-    this.isComputeEngine.bind(this),
-    this.isContainerEngine.bind(this)
-  ], function () {
-    callback(null, self.environment);
-  });
-};
-
-Auth.prototype.getProjectId = function (callback) {
-  var self = this;
-
-  if (this.projectId) {
-    setImmediate(function () {
-      callback(null, self.projectId);
-    });
-
-    return;
   }
 
-  this.getAuthClient(function (err) {
-    if (err) {
-      callback(err);
+  getAuthClient (callback) {
+    var createAuthClientPromise = (resolve, reject) => {
+      var googleAuth = new GoogleAuth();
+
+      var config = this.config;
+      var keyFile = config.keyFilename || config.keyFile;
+
+      var addScope = (err, authClient, projectId) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+
+        if (authClient.createScopedRequired && authClient.createScopedRequired()) {
+          if (!config.scopes || config.scopes.length === 0) {
+            var scopeError = new Error('Scopes are required for this request.');
+            scopeError.code = 'MISSING_SCOPE';
+            reject(scopeError);
+            return;
+          }
+        }
+
+        authClient.scopes = config.scopes;
+        this.authClient = authClient;
+        this.projectId = projectId || authClient.projectId;
+
+        resolve(authClient);
+      };
+
+      if (config.credentials) {
+        googleAuth.fromJSON(config.credentials, addScope);
+      } else if (keyFile) {
+        keyFile = path.resolve(process.cwd(), keyFile);
+
+        fs.readFile(keyFile, (err, contents) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+
+          try {
+            googleAuth.fromJSON(JSON.parse(contents), addScope);
+          } catch(e) {
+            var authClient = new googleAuth.JWT();
+            authClient.keyFile = keyFile;
+            authClient.email = config.email;
+            addScope(null, authClient);
+          }
+        });
+      } else {
+        googleAuth.getApplicationDefault(addScope);
+      }
+    };
+
+    if (!this.authClientPromise) {
+      if (this.authClient) {
+        this.authClientPromise = Promise.resolve(this.authClient);
+      } else {
+        this.authClientPromise = new Promise(createAuthClientPromise);
+      }
+    }
+
+    this.authClientPromise.then(callback.bind(null, null)).catch(callback);
+  }
+
+  getCredentials (callback) {
+    this.getAuthClient((err, client) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      if (client.email && client.key) {
+        callback(null, {
+          client_email: client.email,
+          private_key: client.key
+        });
+        return;
+      }
+
+      if (!client.authorize) {
+        callback(new Error('Could not get credentials without a JSON, pem, or p12 keyfile.'));
+        return;
+      }
+
+      client.authorize(err => {
+        if (err) {
+          callback(err);
+          return;
+        }
+
+        this.getCredentials(callback);
+      });
+    });
+  }
+
+  getEnvironment (callback) {
+    async.parallel([
+      cb => this.isAppEngine(cb),
+      cb => this.isCloudFunction(cb),
+      cb => this.isComputeEngine(cb),
+      cb => this.isContainerEngine(cb)
+    ], () => {
+      callback(null, this.environment);
+    });
+  }
+
+  getProjectId (callback) {
+    if (this.projectId) {
+      setImmediate(() => {
+        callback(null, this.projectId);
+      });
       return;
     }
 
-    callback(null, self.projectId);
-  });
-};
+    this.getAuthClient(err => {
+      if (err) {
+        callback(err);
+        return;
+      }
 
-Auth.prototype.getToken = function (callback) {
-  this.getAuthClient(function (err, client) {
-    if (err) {
-      callback(err);
+      callback(null, this.projectId);
+    });
+  }
+
+  getToken (callback) {
+    this.getAuthClient((err, client) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      client.getAccessToken(callback);
+    });
+  }
+
+  isAppEngine (callback) {
+    setImmediate(() => {
+      var env = this.environment;
+
+      if (typeof env.IS_APP_ENGINE === 'undefined') {
+        env.IS_APP_ENGINE = !!(process.env.GAE_SERVICE || process.env.GAE_MODULE_NAME);
+      }
+
+      callback(null, env.IS_APP_ENGINE);
+    });
+  }
+
+  isCloudFunction (callback) {
+    setImmediate(() => {
+      var env = this.environment;
+
+      if (typeof env.IS_CLOUD_FUNCTION === 'undefined') {
+        env.IS_CLOUD_FUNCTION = !!process.env.FUNCTION_NAME;
+      }
+
+      callback(null, env.IS_CLOUD_FUNCTION);
+    });
+  }
+
+  isComputeEngine (callback) {
+    var env = this.environment;
+
+    if (typeof env.IS_COMPUTE_ENGINE !== 'undefined') {
+      setImmediate(() => {
+        callback(null, env.IS_COMPUTE_ENGINE);
+      });
       return;
     }
 
-    client.getAccessToken(callback);
-  });
-};
+    request('http://metadata.google.internal', (err, res) => {
+      env.IS_COMPUTE_ENGINE = !err && res.headers['metadata-flavor'] === 'Google';
 
-Auth.prototype.isAppEngine = function (callback) {
-  var self = this;
-
-  setImmediate(function () {
-    if (typeof self.environment.IS_APP_ENGINE === 'undefined') {
-      self.environment.IS_APP_ENGINE =
-        !!(process.env.GAE_SERVICE || process.env.GAE_MODULE_NAME);
-    }
-
-    callback(null, self.environment.IS_APP_ENGINE);
-  });
-};
-
-Auth.prototype.isCloudFunction = function (callback) {
-  var self = this;
-
-  setImmediate(function () {
-    if (typeof self.environment.IS_CLOUD_FUNCTION === 'undefined') {
-      self.environment.IS_CLOUD_FUNCTION = !!process.env.FUNCTION_NAME;
-    }
-
-    callback(null, self.environment.IS_CLOUD_FUNCTION);
-  });
-};
-
-Auth.prototype.isComputeEngine = function (callback) {
-  var self = this;
-
-  if (typeof this.environment.IS_COMPUTE_ENGINE !== 'undefined') {
-    setImmediate(function () {
-      callback(null, self.environment.IS_COMPUTE_ENGINE);
+      callback(null, env.IS_COMPUTE_ENGINE);
     });
-    return;
   }
 
-  request('http://metadata.google.internal', function (err, res) {
-    self.environment.IS_COMPUTE_ENGINE =
-      !err && res.headers['metadata-flavor'] === 'Google';
+  isContainerEngine (callback) {
+    var env = this.environment;
 
-    callback(null, self.environment.IS_COMPUTE_ENGINE);
-  });
-};
+    if (typeof env.IS_CONTAINER_ENGINE !== 'undefined') {
+      setImmediate(() => {
+        callback(null, env.IS_CONTAINER_ENGINE);
+      });
+      return;
+    }
 
-Auth.prototype.isContainerEngine = function (callback) {
-  var self = this;
+    gcpMetadata.instance('/attributes/cluster-name', err => {
+      env.IS_CONTAINER_ENGINE = !err;
 
-  if (typeof this.environment.IS_CONTAINER_ENGINE !== 'undefined') {
-    setImmediate(function () {
-      callback(null, self.environment.IS_CONTAINER_ENGINE);
+      callback(null, env.IS_CONTAINER_ENGINE);
     });
-    return;
   }
+}
 
-  gcpMetadata.instance('/attributes/cluster-name', function (err) {
-    self.environment.IS_CONTAINER_ENGINE = !err;
-
-    callback(null, self.environment.IS_CONTAINER_ENGINE);
-  });
+module.exports = config => {
+  return new Auth(config);
 };
-
-module.exports = Auth;
