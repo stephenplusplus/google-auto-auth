@@ -77,7 +77,7 @@ auth.getToken(function (err, token) {});
 
 See the above section on Authentication. This object is necessary if automatic authentication is not available in your environment.
 
-Everything from the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/gcloud-node/#/authentication) applies here.
+Everything from the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/google-cloud-node/#/docs/google-cloud/master/guides/authentication) applies here.
 
 At a glance, the supported properties for this method are:
 
