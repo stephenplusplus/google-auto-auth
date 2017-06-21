@@ -33,6 +33,26 @@ class Auth {
   }
 
   getAuthClient (callback) {
+    if (this.authClient) {
+      // This code works around an issue with context loss with async-listener.
+      // Strictly speaking, this should not be necessary as the call to
+      // authClientPromise.then(..) below would resolve to the same value.
+      // However, async-listener defaults to resuming the `then` callbacks with
+      // the context at the point of resolution rather than the context from the
+      // point where the `then` callback was added. In this case, the promise
+      // will be resolved on the very first incoming http request, and that
+      // context will become sticky (will be restored by async-listener) around
+      // the `then` callbacks for all subsequent requests.
+      //
+      // This breaks APM tools like Stackdriver Trace & others and tools like 
+      // long stack traces (they will provide an incorrect stack trace).
+      //
+      // NOTE: this doesn't solve the problem generally. Any request concurrent
+      // to the first call to this function, before the promise resolves, will
+      // still lose context. We don't have a better solution at the moment :(.
+      return setImmediate(callback.bind(null, null, this.authClient));
+    }
+
     var createAuthClientPromise = (resolve, reject) => {
       var googleAuth = new GoogleAuth();
 
