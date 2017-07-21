@@ -115,13 +115,7 @@ describe('googleAutoAuth', function () {
 
       auth.getAuthClient(function (err, authClient) {
         assert.strictEqual(authClient, auth.authClient);
-
-        auth.authClientPromise
-          .then(function (authClientFromPromise) {
-            assert.strictEqual(authClientFromPromise, authClient);
-            done();
-          })
-          .catch(done);
+        done();
       });
     });
 
