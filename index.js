@@ -239,9 +239,9 @@ class Auth {
       return;
     }
 
-    gcpMetadata.instance('/attributes/cluster-name', err => {
+    gcpMetadata.instance('/attributes/cluster-name', (err, _, clusterName) => {
       env.IS_CONTAINER_ENGINE = !err;
-
+      env.clusterName = clusterName;
       callback(null, env.IS_CONTAINER_ENGINE);
     });
   }
