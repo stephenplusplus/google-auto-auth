@@ -115,13 +115,7 @@ describe('googleAutoAuth', function () {
 
       auth.getAuthClient(function (err, authClient) {
         assert.strictEqual(authClient, auth.authClient);
-
-        auth.authClientPromise
-          .then(function (authClientFromPromise) {
-            assert.strictEqual(authClientFromPromise, authClient);
-            done();
-          })
-          .catch(done);
+        done();
       });
     });
 
@@ -132,6 +126,30 @@ describe('googleAutoAuth', function () {
         assert.ifError(err);
         assert.strictEqual(authClient, 42);
         done();
+      });
+    });
+
+    it('should create an authClientPromise', function (done) {
+      var authClient = {};
+
+      googleAuthLibraryOverride = function () {
+        return {
+          getApplicationDefault: function (callback) {
+            callback(null, authClient);
+          }
+        };
+      };
+
+      auth.getAuthClient(function (err, _authClient) {
+        assert.ifError(err);
+
+        assert.strictEqual(_authClient, authClient);
+
+        auth.authClientPromise
+          .then(function (authClientFromPromise) {
+            assert.strictEqual(authClientFromPromise, authClient);
+            done();
+          });
       });
     });
 
