@@ -129,6 +129,28 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should create an authClientPromise', function(done) {
+      const AUTH_CLIENT = { x: 'x', y: 'y'};
+
+      googleAuthLibraryOverride = function () {
+        return {
+          getApplicationDefault: function (cb) {
+            cb(null, AUTH_CLIENT);
+          }
+        };
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+        assert.strictEqual(authClient, AUTH_CLIENT);
+        auth.authClientPromise
+          .then(function (authClientFromPromise) {
+            assert.strictEqual(authClientFromPromise, AUTH_CLIENT);
+            done();
+          });
+      });
+    });
+
     it('should use google-auth-library', function () {
       var googleAuthLibraryCalled = false;
 
