@@ -767,10 +767,12 @@ describe('googleAutoAuth', function () {
       };
 
       assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
+      assert.strictEqual(auth.environment.clusterName, undefined);
 
       auth.isContainerEngine(function (err, isContainerEngine) {
         assert.ifError(err);
         assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, false);
+        assert.strictEqual(auth.environment.clusterName, undefined);
         assert.strictEqual(isContainerEngine, false);
         done();
       });
@@ -778,14 +780,16 @@ describe('googleAutoAuth', function () {
 
     it('should set true if instance request succeeds', function (done) {
       instanceOverride = function (property, callback) {
-        callback(null);
+        callback(null, null, 'fake-cluster');
       };
 
       assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
+      assert.strictEqual(auth.environment.clusterName, undefined);
 
       auth.isContainerEngine(function (err, isContainerEngine) {
         assert.ifError(err);
         assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, true);
+        assert.strictEqual(auth.environment.clusterName, 'fake-cluster');
         assert.strictEqual(isContainerEngine, true);
         done();
       });
