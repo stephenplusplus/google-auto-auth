@@ -107,11 +107,7 @@ class Auth {
     };
 
     if (!this.authClientPromise) {
-      if (this.authClient) {
-        this.authClientPromise = Promise.resolve(this.authClient);
-      } else {
-        this.authClientPromise = new Promise(createAuthClientPromise);
-      }
+      this.authClientPromise = new Promise(createAuthClientPromise);
     }
 
     this.authClientPromise.then(callback.bind(null, null)).catch(callback);
