@@ -724,7 +724,8 @@ describe('googleAutoAuth', function () {
         callback(null, {
           headers: {
             'metadata-flavor': 'Google'
-          }
+          },
+          statusCode: 200
         });
       };
 
@@ -776,9 +777,52 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should set false if instance request 404s', function (done) {
+      instanceOverride = function (property, callback) {
+        callback(null, { 
+          statusCode: 404, 
+          headers: { 'metadata-flavor': 'Google' } 
+        });
+      };
+
+      assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
+      assert.strictEqual(auth.environment.clusterName, undefined);
+
+      auth.isContainerEngine(function (err, isContainerEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, false);
+        assert.strictEqual(auth.environment.clusterName, undefined);
+        assert.strictEqual(isContainerEngine, false);
+        done();
+      });
+    });
+
+    it('should set false if instance response is invalid', function (done) {
+      instanceOverride = function (property, callback) {
+        callback(null, { 
+          statusCode: 200, 
+          headers: { 'metadata-flavor': 'Not Google' } 
+        }, 'fake-cluster');
+      };
+
+      assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
+      assert.strictEqual(auth.environment.clusterName, undefined);
+
+      auth.isContainerEngine(function (err, isContainerEngine) {
+        assert.ifError(err);
+        assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, false);
+        assert.strictEqual(auth.environment.clusterName, undefined);
+        assert.strictEqual(isContainerEngine, false);
+        done();
+      });
+    });
+
     it('should set true if instance request succeeds', function (done) {
       instanceOverride = function (property, callback) {
-        callback(null);
+        callback(null, { 
+          statusCode: 200,
+          headers: { 'metadata-flavor': 'Google' }
+        });
       };
 
       assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
