@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "async": "^2.3.0",
-    "gcp-metadata": "^0.2.0",
+    "gcp-metadata": "^0.3.0",
     "google-auth-library": "^0.10.0",
     "request": "^2.79.0"
   },
