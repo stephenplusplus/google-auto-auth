@@ -219,7 +219,7 @@ class Auth {
     }
 
     request('http://metadata.google.internal', (err, res) => {
-      env.IS_COMPUTE_ENGINE = !err && res.headers['metadata-flavor'] === 'Google';
+      env.IS_COMPUTE_ENGINE = this.validMetadataResponse(err, res);
 
       callback(null, env.IS_COMPUTE_ENGINE);
     });
@@ -235,11 +235,16 @@ class Auth {
       return;
     }
 
-    gcpMetadata.instance('/attributes/cluster-name', err => {
-      env.IS_CONTAINER_ENGINE = !err;
+    gcpMetadata.instance('/attributes/cluster-name', (err, res) => {
+      env.IS_CONTAINER_ENGINE = this.validMetadataResponse(err, res);
 
       callback(null, env.IS_CONTAINER_ENGINE);
     });
+  }
+
+  validMetadataResponse (err, res) {
+    return !err && res && res.headers['metadata-flavor'] === 'Google' &&
+      res.statusCode === 200;
   }
 }
 
