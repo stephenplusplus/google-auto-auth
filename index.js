@@ -12,6 +12,7 @@ class Auth {
     this.authClientPromise = null;
     this.authClient = null;
     this.config = config || {};
+    this.credentials = null;
     this.environment = {};
   }
 
@@ -44,7 +45,7 @@ class Auth {
       // context will become sticky (will be restored by async-listener) around
       // the `then` callbacks for all subsequent requests.
       //
-      // This breaks APM tools like Stackdriver Trace & others and tools like 
+      // This breaks APM tools like Stackdriver Trace & others and tools like
       // long stack traces (they will provide an incorrect stack trace).
       //
       // NOTE: this doesn't solve the problem generally. Any request concurrent
@@ -114,32 +115,28 @@ class Auth {
   }
 
   getCredentials (callback) {
+    if (this.credentials) {
+      setImmediate(() => {
+        callback(null, this.credentials);
+      });
+      return;
+    }
+
     this.getAuthClient((err, client) => {
       if (err) {
         callback(err);
         return;
       }
 
-      if (client.email && client.key) {
-        callback(null, {
-          client_email: client.email,
-          private_key: client.key
-        });
-        return;
-      }
-
-      if (!client.authorize) {
-        callback(new Error('Could not get credentials without a JSON, pem, or p12 keyfile.'));
-        return;
-      }
-
-      client.authorize(err => {
+      client.getCredentials((err, credentials) => {
         if (err) {
           callback(err);
           return;
         }
 
-        this.getCredentials(callback);
+        this.credentials = credentials;
+
+        callback(null, credentials);
       });
     });
   }
@@ -239,6 +236,51 @@ class Auth {
       env.IS_CONTAINER_ENGINE = !err;
 
       callback(null, env.IS_CONTAINER_ENGINE);
+    });
+  }
+
+  sign (data, callback) {
+    this.getCredentials((err, credentials) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      if (!this.projectId) {
+        callback(new Error('Cannot sign data without a project ID.'));
+        return;
+      }
+
+      if (!credentials.client_email) {
+        callback(new Error('Cannot sign data without `client_email`.'));
+        return;
+      }
+
+      var idString = `projects/${this.projectId}/serviceAccounts/${credentials.client_email}`;
+
+      var reqOpts = {
+        method: 'POST',
+        uri: `https://iam.googleapis.com/v1/${idString}:signBlob`,
+        json: {
+          bytesToSign: Buffer.from(data).toString('base64')
+        }
+      };
+
+      this.authorizeRequest(reqOpts, (err, authorizedReqOpts) => {
+        if (err) {
+          callback(err);
+          return;
+        }
+
+        request(authorizedReqOpts, function(err, resp, body) {
+          if (err) {
+            callback(err);
+            return;
+          }
+
+          callback(null, body.signature);
+        });
+      });
     });
   }
 }

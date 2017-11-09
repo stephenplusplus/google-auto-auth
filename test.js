@@ -206,7 +206,7 @@ describe('googleAutoAuth', function () {
       });
     });
 
-    it('should see if a file reads as JSON', function(done) {
+    it('should see if a file reads as JSON', function (done) {
       auth.config = {
         keyFile: '../test.keyfile',
         scopes: ['dev.scope']
@@ -392,6 +392,20 @@ describe('googleAutoAuth', function () {
   });
 
   describe('getCredentials', function () {
+    it('should return a cached credentials object', function (done) {
+      auth.getAuthClient = function () {
+        throw new Error('Should not be executed.')
+      };
+
+      auth.credentials = {};
+
+      auth.getCredentials(function (err, credentials) {
+        assert.ifError(err);
+        assert.strictEqual(credentials, auth.credentials);
+        done();
+      })
+    });
+
     it('should get an auth client', function (done) {
       auth.getAuthClient = function () {
         done();
@@ -414,76 +428,45 @@ describe('googleAutoAuth', function () {
     });
 
     it('should execute callback with object', function (done) {
-      var credentials = { email: 'email', key: 'key' };
+      var credentialsFromAuthClient = {};
+
+      var authClient = {
+        getCredentials: function (callback) {
+          callback(null, credentialsFromAuthClient);
+        }
+      };
 
       auth.getAuthClient = function (callback) {
-        callback(null, credentials);
+        callback(null, authClient);
       };
 
       auth.getCredentials(function (err, creds) {
         assert.ifError(err);
 
-        assert.strictEqual(creds.client_email, credentials.email);
-        assert.strictEqual(creds.private_key, credentials.key);
+        assert.strictEqual(creds, credentialsFromAuthClient);
+        assert.strictEqual(auth.credentials, credentialsFromAuthClient);
 
         done();
       });
     });
 
-    it('should return error if authorize is not available', function (done) {
-      auth.getAuthClient = function (callback) {
-        callback(null, {});
-      };
-
-      auth.getCredentials(function (err) {
-        assert.strictEqual(err.message, 'Could not get credentials without a JSON, pem, or p12 keyfile.');
-        done();
-      });
-    });
-
-    it('should authorize if necessary', function (done) {
-      auth.getAuthClient = function (callback) {
-        callback(null, {
-          authorize: function () {
-            done();
-          }
-        });
-      };
-
-      auth.getCredentials(assert.ifError);
-    });
-
-    it('should execute callback with error from auth', function (done) {
+    it('should execute callback with error from client', function (done) {
       var error = new Error('Error.');
 
+      var authClient = {
+        getCredentials: function (callback) {
+          callback(error);
+        }
+      };
+
       auth.getAuthClient = function (callback) {
-        callback(null, {
-          authorize: function (callback) {
-            callback(error);
-          }
-        });
+        callback(null, authClient);
       };
 
       auth.getCredentials(function (err) {
         assert.strictEqual(err, error);
         done();
       });
-    });
-
-    it('should call getCredentials again', function (done) {
-      auth.getAuthClient = function (callback) {
-        callback(null, {
-          authorize: function (callback) {
-            auth.getCredentials = function () {
-              done();
-            };
-
-            callback();
-          }
-        });
-      };
-
-      auth.getCredentials(assert.ifError);
     });
   });
 
@@ -787,6 +770,187 @@ describe('googleAutoAuth', function () {
         assert.ifError(err);
         assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, true);
         assert.strictEqual(isContainerEngine, true);
+        done();
+      });
+    });
+  });
+
+  describe('sign', function () {
+    var DATA_TO_SIGN = 'data-to-sign';
+
+    it('should return an error from getCredentials', function (done) {
+      var error = new Error('Error.');
+
+      auth.getCredentials = function (callback) {
+        callback(error);
+      };
+
+      auth.sign(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should return an error if there is no project ID', function (done) {
+      auth.projectId = undefined;
+
+      var credentials = {};
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      auth.sign(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err.message, 'Cannot sign data without a project ID.');
+        done();
+      });
+    });
+
+    it('should return an error if there is no client email', function (done) {
+      auth.projectId = 'project-id';
+
+      var credentials = {};
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      auth.sign(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err.message, 'Cannot sign data without `client_email`.');
+        done();
+      });
+    });
+
+    it('should authorize the signBlob request', function (done) {
+      auth.projectId = 'project-id';
+
+      var credentials = {
+        client_email: 'client-email'
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      auth.authorizeRequest = function (reqOpts) {
+        assert.deepEqual(reqOpts, {
+          method: 'POST',
+          uri: 'https://iam.googleapis.com/v1/projects/project-id/serviceAccounts/client-email:signBlob',
+          json: {
+            bytesToSign: Buffer.from(DATA_TO_SIGN).toString('base64')
+          }
+        });
+        done();
+      };
+
+      auth.sign(DATA_TO_SIGN, assert.ifError);
+    });
+
+    it('should return an error from authorizing the request', function (done) {
+      auth.projectId = 'project-id';
+
+      var credentials = {
+        client_email: 'client-email'
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      var error = new Error('Error.');
+
+      auth.authorizeRequest = function (reqOpts, callback) {
+        callback(error);
+      };
+
+      auth.sign(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should make the authorized request', function (done) {
+      auth.projectId = 'project-id';
+
+      var credentials = {
+        client_email: 'client-email'
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      var authorizedReqOpts = {};
+
+      auth.authorizeRequest = function (reqOpts, callback) {
+        callback(null, authorizedReqOpts);
+      };
+
+      requestOverride = function (reqOpts) {
+        assert.strictEqual(reqOpts, authorizedReqOpts);
+        done();
+      };
+
+      auth.sign(DATA_TO_SIGN, assert.ifError);
+    });
+
+    it('should return an error from the request', function (done) {
+      auth.projectId = 'project-id';
+
+      var credentials = {
+        client_email: 'client-email'
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      var authorizedReqOpts = {};
+
+      auth.authorizeRequest = function (reqOpts, callback) {
+        callback(null, authorizedReqOpts);
+      };
+
+      var error = new Error('Error.');
+
+      requestOverride = function (reqOpts, callback) {
+        callback(error);
+      };
+
+      auth.sign(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should return the signature', function (done) {
+      auth.projectId = 'project-id';
+
+      var credentials = {
+        client_email: 'client-email'
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, credentials);
+      };
+
+      var authorizedReqOpts = {};
+
+      auth.authorizeRequest = function (reqOpts, callback) {
+        callback(null, authorizedReqOpts);
+      };
+
+      var body = {
+        signature: 'signature'
+      };
+
+      requestOverride = function (reqOpts, callback) {
+        callback(null, null, body);
+      };
+
+      auth.sign(DATA_TO_SIGN, function (err, signature) {
+        assert.ifError(err);
+        assert.strictEqual(signature, body.signature);
         done();
       });
     });
