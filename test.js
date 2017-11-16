@@ -6,6 +6,13 @@ var googleAuthLibrary = require('google-auth-library');
 var mockery = require('mockery');
 var path = require('path');
 
+var createSignOverride;
+var fakeCrypto = {
+  createSign: function () {
+    return (createSignOverride || function () {}).apply(null, arguments);
+  }
+};
+
 var googleAuthLibraryOverride;
 function fakeGoogleAuthLibrary() {
   return (googleAuthLibraryOverride || googleAuthLibrary)
@@ -32,6 +39,7 @@ describe('googleAutoAuth', function () {
     mockery.registerMock('google-auth-library', {
       GoogleAuth: fakeGoogleAuthLibrary
     });
+    mockery.registerMock('crypto', fakeCrypto);
     mockery.registerMock('request', fakeRequest);
     mockery.registerMock('gcp-metadata', fakeGcpMetadata);
 
@@ -49,6 +57,7 @@ describe('googleAutoAuth', function () {
   });
 
   beforeEach(function () {
+    createSignOverride = null;
     requestOverride = null;
     googleAuthLibraryOverride = null;
     instanceOverride = null;
@@ -806,47 +815,69 @@ describe('googleAutoAuth', function () {
       });
     });
 
+    it('should sign with private key if available', function (done) {
+      auth._signWithPrivateKey = function (data, callback) {
+        assert.strictEqual(data, DATA_TO_SIGN);
+        callback(); // done()
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, {
+          private_key: 'private-key'
+        });
+      };
+
+      auth.sign(DATA_TO_SIGN, done);
+    });
+
+    it('should sign with API if private key is not available', function (done) {
+      auth._signWithApi = function (data, callback) {
+        assert.strictEqual(data, DATA_TO_SIGN);
+        callback(); // done()
+      };
+
+      auth.getCredentials = function (callback) {
+        callback(null, {
+          // private_key: 'private-key' (no private_key)
+        });
+      };
+
+      auth.sign(DATA_TO_SIGN, done);
+    });
+  });
+
+  describe('_signWithApi', function () {
+    var DATA_TO_SIGN = 'data-to-sign';
+
+    beforeEach(function () {
+      auth.projectId = 'project-id';
+
+      auth.credentials = {
+        client_email: 'client-email'
+      };
+    });
+
     it('should return an error if there is no project ID', function (done) {
       auth.projectId = undefined;
 
-      var credentials = {};
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
-      };
-
-      auth.sign(DATA_TO_SIGN, function (err) {
+      auth._signWithApi(DATA_TO_SIGN, function (err) {
         assert.strictEqual(err.message, 'Cannot sign data without a project ID.');
         done();
       });
     });
 
     it('should return an error if there is no client email', function (done) {
-      auth.projectId = 'project-id';
-
-      var credentials = {};
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
+      auth.credentials = {
+        // client_email: 'client-email' (not available)
       };
 
-      auth.sign(DATA_TO_SIGN, function (err) {
+      auth._signWithApi(DATA_TO_SIGN, function (err) {
         assert.strictEqual(err.message, 'Cannot sign data without `client_email`.');
         done();
       });
     });
 
     it('should authorize the signBlob request', function (done) {
-      auth.projectId = 'project-id';
-
-      var credentials = {
-        client_email: 'client-email'
-      };
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
-      };
-
       auth.authorizeRequest = function (reqOpts) {
         assert.deepEqual(reqOpts, {
           method: 'POST',
@@ -858,43 +889,23 @@ describe('googleAutoAuth', function () {
         done();
       };
 
-      auth.sign(DATA_TO_SIGN, assert.ifError);
+      auth._signWithApi(DATA_TO_SIGN, assert.ifError);
     });
 
     it('should return an error from authorizing the request', function (done) {
-      auth.projectId = 'project-id';
-
-      var credentials = {
-        client_email: 'client-email'
-      };
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
-      };
-
       var error = new Error('Error.');
 
       auth.authorizeRequest = function (reqOpts, callback) {
         callback(error);
       };
 
-      auth.sign(DATA_TO_SIGN, function (err) {
+      auth._signWithApi(DATA_TO_SIGN, function (err) {
         assert.strictEqual(err, error);
         done();
       });
     });
 
     it('should make the authorized request', function (done) {
-      auth.projectId = 'project-id';
-
-      var credentials = {
-        client_email: 'client-email'
-      };
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
-      };
-
       var authorizedReqOpts = {};
 
       auth.authorizeRequest = function (reqOpts, callback) {
@@ -906,20 +917,10 @@ describe('googleAutoAuth', function () {
         done();
       };
 
-      auth.sign(DATA_TO_SIGN, assert.ifError);
+      auth._signWithApi(DATA_TO_SIGN, assert.ifError);
     });
 
     it('should return an error from the request', function (done) {
-      auth.projectId = 'project-id';
-
-      var credentials = {
-        client_email: 'client-email'
-      };
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
-      };
-
       var authorizedReqOpts = {};
 
       auth.authorizeRequest = function (reqOpts, callback) {
@@ -932,23 +933,13 @@ describe('googleAutoAuth', function () {
         callback(error);
       };
 
-      auth.sign(DATA_TO_SIGN, function (err) {
+      auth._signWithApi(DATA_TO_SIGN, function (err) {
         assert.strictEqual(err, error);
         done();
       });
     });
 
     it('should return the signature', function (done) {
-      auth.projectId = 'project-id';
-
-      var credentials = {
-        client_email: 'client-email'
-      };
-
-      auth.getCredentials = function (callback) {
-        callback(null, credentials);
-      };
-
       var authorizedReqOpts = {};
 
       auth.authorizeRequest = function (reqOpts, callback) {
@@ -963,9 +954,47 @@ describe('googleAutoAuth', function () {
         callback(null, null, body);
       };
 
-      auth.sign(DATA_TO_SIGN, function (err, signature) {
+      auth._signWithApi(DATA_TO_SIGN, function (err, signature) {
         assert.ifError(err);
         assert.strictEqual(signature, body.signature);
+        done();
+      });
+    });
+  });
+
+  describe('_signWithPrivateKey', function () {
+    var DATA_TO_SIGN = 'data-to-sign';
+
+    beforeEach(function () {
+      auth.credentials = {
+        private_key: 'private-key'
+      };
+    });
+
+    it('should return the signature', function (done) {
+      var updatedWithCorrectData = false;
+      var expectedSignature = 'signed-data';
+
+      createSignOverride = function (algo) {
+        assert.strictEqual(algo, 'RSA-SHA256');
+
+        return {
+          sign: function (private_key, outputFormat) {
+            assert.strictEqual(private_key, auth.credentials.private_key);
+            return expectedSignature;
+          },
+
+          update: function (data) {
+            assert.strictEqual(data, DATA_TO_SIGN);
+            updatedWithCorrectData = true;
+          }
+        };
+      };
+
+      auth._signWithPrivateKey(DATA_TO_SIGN, function (err, signature) {
+        assert.ifError(err);
+        assert.strictEqual(updatedWithCorrectData, true);
+        assert.strictEqual(signature, expectedSignature);
         done();
       });
     });

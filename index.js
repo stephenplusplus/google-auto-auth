@@ -1,6 +1,7 @@
 'use strict';
 
 var async = require('async');
+var crypto = require('crypto');
 var fs = require('fs');
 var GoogleAuth = require('google-auth-library').GoogleAuth;
 var gcpMetadata = require('gcp-metadata');
@@ -247,42 +248,60 @@ class Auth {
         return;
       }
 
-      if (!this.projectId) {
-        callback(new Error('Cannot sign data without a project ID.'));
+      if (credentials.private_key) {
+        this._signWithPrivateKey(data, callback);
+      } else {
+        this._signWithApi(data, callback);
+      }
+    });
+  }
+
+  // `this.getCredentials()` will always have been run by this time
+  _signWithApi (data, callback) {
+    if (!this.projectId) {
+      callback(new Error('Cannot sign data without a project ID.'));
+      return;
+    }
+
+    var client_email = this.credentials.client_email;
+
+    if (!client_email) {
+      callback(new Error('Cannot sign data without `client_email`.'));
+      return;
+    }
+
+    var idString = `projects/${this.projectId}/serviceAccounts/${client_email}`;
+
+    var reqOpts = {
+      method: 'POST',
+      uri: `https://iam.googleapis.com/v1/${idString}:signBlob`,
+      json: {
+        bytesToSign: Buffer.from(data).toString('base64')
+      }
+    };
+
+    this.authorizeRequest(reqOpts, (err, authorizedReqOpts) => {
+      if (err) {
+        callback(err);
         return;
       }
 
-      if (!credentials.client_email) {
-        callback(new Error('Cannot sign data without `client_email`.'));
-        return;
-      }
-
-      var idString = `projects/${this.projectId}/serviceAccounts/${credentials.client_email}`;
-
-      var reqOpts = {
-        method: 'POST',
-        uri: `https://iam.googleapis.com/v1/${idString}:signBlob`,
-        json: {
-          bytesToSign: Buffer.from(data).toString('base64')
-        }
-      };
-
-      this.authorizeRequest(reqOpts, (err, authorizedReqOpts) => {
+      request(authorizedReqOpts, function(err, resp, body) {
         if (err) {
           callback(err);
           return;
         }
 
-        request(authorizedReqOpts, function(err, resp, body) {
-          if (err) {
-            callback(err);
-            return;
-          }
-
-          callback(null, body.signature);
-        });
+        callback(null, body.signature);
       });
     });
+  }
+
+  // `this.getCredentials()` will always have been run by this time
+  _signWithPrivateKey (data, callback) {
+    var sign = crypto.createSign('RSA-SHA256');
+    sign.update(data);
+    callback(null, sign.sign(this.credentials.private_key, 'base64'));
   }
 }
 
