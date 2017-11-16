@@ -29,7 +29,9 @@ describe('googleAutoAuth', function () {
   var auth;
 
   before(function () {
-    mockery.registerMock('google-auth-library', fakeGoogleAuthLibrary);
+    mockery.registerMock('google-auth-library', {
+      GoogleAuth: fakeGoogleAuthLibrary
+    });
     mockery.registerMock('request', fakeRequest);
     mockery.registerMock('gcp-metadata', fakeGcpMetadata);
 
@@ -165,6 +167,19 @@ describe('googleAutoAuth', function () {
 
       auth.getAuthClient(assert.ifError);
       assert.strictEqual(googleAuthLibraryCalled, true);
+    });
+
+    it('should cache googleAuthClient', function () {
+      var googleAuthClient = {
+        getApplicationDefault: function () {}
+      };
+
+      googleAuthLibraryOverride = function () {
+        return googleAuthClient;
+      };
+
+      auth.getAuthClient(assert.ifError);
+      assert.strictEqual(auth.googleAuthClient, googleAuthClient);
     });
 
     it('should create a google auth client from JSON', function (done) {
@@ -430,14 +445,14 @@ describe('googleAutoAuth', function () {
     it('should execute callback with object', function (done) {
       var credentialsFromAuthClient = {};
 
-      var authClient = {
+      auth.googleAuthClient = {
         getCredentials: function (callback) {
           callback(null, credentialsFromAuthClient);
         }
       };
 
       auth.getAuthClient = function (callback) {
-        callback(null, authClient);
+        callback();
       };
 
       auth.getCredentials(function (err, creds) {
@@ -453,14 +468,14 @@ describe('googleAutoAuth', function () {
     it('should execute callback with error from client', function (done) {
       var error = new Error('Error.');
 
-      var authClient = {
+      auth.googleAuthClient = {
         getCredentials: function (callback) {
           callback(error);
         }
       };
 
       auth.getAuthClient = function (callback) {
-        callback(null, authClient);
+        callback();
       };
 
       auth.getCredentials(function (err) {

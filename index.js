@@ -2,7 +2,7 @@
 
 var async = require('async');
 var fs = require('fs');
-var GoogleAuth = require('google-auth-library');
+var GoogleAuth = require('google-auth-library').GoogleAuth;
 var gcpMetadata = require('gcp-metadata');
 var path = require('path');
 var request = require('request');
@@ -11,6 +11,7 @@ class Auth {
   constructor(config) {
     this.authClientPromise = null;
     this.authClient = null;
+    this.googleAuthClient = null;
     this.config = config || {};
     this.credentials = null;
     this.environment = {};
@@ -55,7 +56,7 @@ class Auth {
     }
 
     var createAuthClientPromise = (resolve, reject) => {
-      var googleAuth = new GoogleAuth();
+      var googleAuthClient = this.googleAuthClient = new GoogleAuth();
 
       var config = this.config;
       var keyFile = config.keyFilename || config.keyFile;
@@ -83,7 +84,7 @@ class Auth {
       };
 
       if (config.credentials) {
-        googleAuth.fromJSON(config.credentials, addScope);
+        googleAuthClient.fromJSON(config.credentials, addScope);
       } else if (keyFile) {
         keyFile = path.resolve(process.cwd(), keyFile);
 
@@ -94,16 +95,16 @@ class Auth {
           }
 
           try {
-            googleAuth.fromJSON(JSON.parse(contents), addScope);
+            googleAuthClient.fromJSON(JSON.parse(contents), addScope);
           } catch(e) {
-            var authClient = new googleAuth.JWT();
+            var authClient = new googleAuthClient.JWT();
             authClient.keyFile = keyFile;
             authClient.email = config.email;
             addScope(null, authClient);
           }
         });
       } else {
-        googleAuth.getApplicationDefault(addScope);
+        googleAuthClient.getApplicationDefault(addScope);
       }
     };
 
@@ -122,13 +123,13 @@ class Auth {
       return;
     }
 
-    this.getAuthClient((err, client) => {
+    this.getAuthClient((err) => {
       if (err) {
         callback(err);
         return;
       }
 
-      client.getCredentials((err, credentials) => {
+      this.googleAuthClient.getCredentials((err, credentials) => {
         if (err) {
           callback(err);
           return;
