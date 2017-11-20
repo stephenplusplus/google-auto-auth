@@ -1,6 +1,7 @@
 'use strict';
 
 var async = require('async');
+var crypto = require('crypto');
 var fs = require('fs');
 var GoogleAuth = require('google-auth-library');
 var gcpMetadata = require('gcp-metadata');
@@ -11,7 +12,9 @@ class Auth {
   constructor(config) {
     this.authClientPromise = null;
     this.authClient = null;
+    this.googleAuthClient = null;
     this.config = config || {};
+    this.credentials = null;
     this.environment = {};
   }
 
@@ -44,7 +47,7 @@ class Auth {
       // context will become sticky (will be restored by async-listener) around
       // the `then` callbacks for all subsequent requests.
       //
-      // This breaks APM tools like Stackdriver Trace & others and tools like 
+      // This breaks APM tools like Stackdriver Trace & others and tools like
       // long stack traces (they will provide an incorrect stack trace).
       //
       // NOTE: this doesn't solve the problem generally. Any request concurrent
@@ -54,7 +57,7 @@ class Auth {
     }
 
     var createAuthClientPromise = (resolve, reject) => {
-      var googleAuth = new GoogleAuth();
+      var googleAuthClient = this.googleAuthClient = new GoogleAuth();
 
       var config = this.config;
       var keyFile = config.keyFilename || config.keyFile;
@@ -82,7 +85,7 @@ class Auth {
       };
 
       if (config.credentials) {
-        googleAuth.fromJSON(config.credentials, addScope);
+        googleAuthClient.fromJSON(config.credentials, addScope);
       } else if (keyFile) {
         keyFile = path.resolve(process.cwd(), keyFile);
 
@@ -93,16 +96,16 @@ class Auth {
           }
 
           try {
-            googleAuth.fromJSON(JSON.parse(contents), addScope);
+            googleAuthClient.fromJSON(JSON.parse(contents), addScope);
           } catch(e) {
-            var authClient = new googleAuth.JWT();
+            var authClient = new googleAuthClient.JWT();
             authClient.keyFile = keyFile;
             authClient.email = config.email;
             addScope(null, authClient);
           }
         });
       } else {
-        googleAuth.getApplicationDefault(addScope);
+        googleAuthClient.getApplicationDefault(addScope);
       }
     };
 
@@ -114,32 +117,28 @@ class Auth {
   }
 
   getCredentials (callback) {
-    this.getAuthClient((err, client) => {
+    if (this.credentials) {
+      setImmediate(() => {
+        callback(null, this.credentials);
+      });
+      return;
+    }
+
+    this.getAuthClient((err) => {
       if (err) {
         callback(err);
         return;
       }
 
-      if (client.email && client.key) {
-        callback(null, {
-          client_email: client.email,
-          private_key: client.key
-        });
-        return;
-      }
-
-      if (!client.authorize) {
-        callback(new Error('Could not get credentials without a JSON, pem, or p12 keyfile.'));
-        return;
-      }
-
-      client.authorize(err => {
+      this.googleAuthClient.getCredentials((err, credentials) => {
         if (err) {
           callback(err);
           return;
         }
 
-        this.getCredentials(callback);
+        this.credentials = credentials;
+
+        callback(null, credentials);
       });
     });
   }
@@ -240,6 +239,69 @@ class Auth {
 
       callback(null, env.IS_CONTAINER_ENGINE);
     });
+  }
+
+  sign (data, callback) {
+    this.getCredentials((err, credentials) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      if (credentials.private_key) {
+        this._signWithPrivateKey(data, callback);
+      } else {
+        this._signWithApi(data, callback);
+      }
+    });
+  }
+
+  // `this.getCredentials()` will always have been run by this time
+  _signWithApi (data, callback) {
+    if (!this.projectId) {
+      callback(new Error('Cannot sign data without a project ID.'));
+      return;
+    }
+
+    var client_email = this.credentials.client_email;
+
+    if (!client_email) {
+      callback(new Error('Cannot sign data without `client_email`.'));
+      return;
+    }
+
+    var idString = `projects/${this.projectId}/serviceAccounts/${client_email}`;
+
+    var reqOpts = {
+      method: 'POST',
+      uri: `https://iam.googleapis.com/v1/${idString}:signBlob`,
+      json: {
+        bytesToSign: Buffer.from(data).toString('base64')
+      }
+    };
+
+    this.authorizeRequest(reqOpts, (err, authorizedReqOpts) => {
+      if (err) {
+        callback(err);
+        return;
+      }
+
+      request(authorizedReqOpts, function(err, resp, body) {
+        if (err) {
+          callback(err);
+          return;
+        }
+
+        callback(null, body.signature);
+      });
+    });
+  }
+
+  // `this.getCredentials()` will always have been run by this time
+  _signWithPrivateKey (data, callback) {
+    var sign = crypto.createSign('RSA-SHA256');
+    sign.update(data);
+    callback(null, sign.sign(this.credentials.private_key, 'base64'));
   }
 }
 
