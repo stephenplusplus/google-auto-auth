@@ -287,12 +287,20 @@ class Auth {
       }
 
       request(authorizedReqOpts, function(err, resp, body) {
-        if (err) {
-          callback(err);
-          return;
+        var response = resp.toJSON();
+
+        if (!err && response.statusCode < 200 || response.statusCode >= 400) {
+          if (typeof response.body === 'object') {
+            var apiError = response.body.error;
+            err = new Error(apiError.message);
+            Object.assign(err, apiError);
+          } else {
+            err = new Error(response.body);
+            err.code = response.statusCode;
+          }
         }
 
-        callback(null, body.signature);
+        callback(err, body && body.signature);
       });
     });
   }

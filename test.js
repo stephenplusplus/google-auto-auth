@@ -846,6 +846,13 @@ describe('googleAutoAuth', function () {
 
   describe('_signWithApi', function () {
     var DATA_TO_SIGN = 'data-to-sign';
+    var DEFAULT_API_RESPONSE = {
+      toJSON: function () {
+        return {
+          statusCode: 200
+        };
+      }
+    };
 
     beforeEach(function () {
       auth.projectId = 'project-id';
@@ -928,11 +935,73 @@ describe('googleAutoAuth', function () {
       var error = new Error('Error.');
 
       requestOverride = function (reqOpts, callback) {
-        callback(error);
+        callback(error, DEFAULT_API_RESPONSE);
       };
 
       auth._signWithApi(DATA_TO_SIGN, function (err) {
         assert.strictEqual(err, error);
+        done();
+      });
+    });
+
+    it('should return an error in the body from the request', function (done) {
+      var authorizedReqOpts = {};
+
+      auth.authorizeRequest = function (reqOpts, callback) {
+        callback(null, authorizedReqOpts);
+      };
+
+      var signBlobApiError = {
+        message: 'Inner error',
+        property: 'Inner property'
+      };
+
+      var signBlobApiResponse = {
+        toJSON: function() {
+          return {
+            statusCode: 400,
+            body: {
+              error: signBlobApiError
+            }
+          };
+        }
+      }
+
+      requestOverride = function (reqOpts, callback) {
+        callback(null, signBlobApiResponse);
+      };
+
+      auth._signWithApi(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err.message, signBlobApiError.message);
+        assert.strictEqual(err.property, signBlobApiError.property);
+        done();
+      });
+    });
+
+    it('should return a string error in the body from the request', function (done) {
+      var authorizedReqOpts = {};
+
+      auth.authorizeRequest = function (reqOpts, callback) {
+        callback(null, authorizedReqOpts);
+      };
+
+      var signBlobApiError = 'String error message';
+
+      var signBlobApiResponse = {
+        toJSON: function() {
+          return {
+            statusCode: 400,
+            body: signBlobApiError
+          };
+        }
+      }
+
+      requestOverride = function (reqOpts, callback) {
+        callback(null, signBlobApiResponse);
+      };
+
+      auth._signWithApi(DATA_TO_SIGN, function (err) {
+        assert.strictEqual(err.message, signBlobApiError);
         done();
       });
     });
@@ -949,7 +1018,7 @@ describe('googleAutoAuth', function () {
       };
 
       requestOverride = function (reqOpts, callback) {
-        callback(null, null, body);
+        callback(null, DEFAULT_API_RESPONSE, body);
       };
 
       auth._signWithApi(DATA_TO_SIGN, function (err, signature) {
