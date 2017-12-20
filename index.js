@@ -113,7 +113,13 @@ class Auth {
       this.authClientPromise = new Promise(createAuthClientPromise);
     }
 
-    this.authClientPromise.then(callback.bind(null, null)).catch(callback);
+    this.authClientPromise.then((authClient) => {
+      callback(null, authClient);
+      // The return null is needed to avoid a spurious warning if the user is
+      // using bluebird.
+      // See: https://github.com/stephenplusplus/google-auto-auth/issues/28
+      return null;
+    }).catch(callback);
   }
 
   getCredentials (callback) {
