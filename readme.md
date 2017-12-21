@@ -84,6 +84,7 @@ At a glance, the supported properties for this method are:
 - `keyFilename` - Path to a .json, .pem, or .p12 key file
 - `credentials` - Object containing `client_email` and `private_key` properties
 - `scopes` - Required scopes for the desired API request
+- `projectId` - Your project ID.
 
 For more details, see the Authentication Guide linked above, under "The config object".
 

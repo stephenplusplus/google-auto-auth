@@ -16,6 +16,7 @@ class Auth {
     this.config = config || {};
     this.credentials = null;
     this.environment = {};
+    this.projectId = this.config.projectId;
   }
 
   authorizeRequest (reqOpts, callback) {
@@ -79,7 +80,7 @@ class Auth {
 
         authClient.scopes = config.scopes;
         this.authClient = authClient;
-        this.projectId = projectId || authClient.projectId;
+        this.projectId = config.projectId || projectId || authClient.projectId;
 
         resolve(authClient);
       };
