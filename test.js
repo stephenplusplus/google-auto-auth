@@ -62,6 +62,33 @@ describe('googleAutoAuth', function () {
     auth = googleAutoAuth();
   });
 
+  describe('constructor', function () {
+    it('should set correct defaults', function () {
+      assert.strictEqual(auth.authClientPromise, null);
+      assert.strictEqual(auth.authClient, null);
+      assert.strictEqual(auth.googleAuthClient, null);
+      assert.deepStrictEqual(auth.config, {});
+      assert.strictEqual(auth.credentials, null);
+      assert.deepStrictEqual(auth.environment, {});
+      assert.strictEqual(auth.projectId, undefined);
+    });
+
+    it('should cache config', function () {
+      var config = {};
+      var auth = googleAutoAuth(config);
+
+      assert.strictEqual(auth.config, config);
+    });
+
+    it('should cache project ID', function () {
+      var auth = googleAutoAuth({
+        projectId: 'project-id'
+      });
+
+      assert.strictEqual(auth.projectId, 'project-id');
+    });
+  });
+
   describe('authorizeRequest', function () {
     it('should get a token', function (done) {
       auth.getToken = function () {
@@ -295,6 +322,33 @@ describe('googleAutoAuth', function () {
         assert.strictEqual(auth.authClient, googleAuthClient);
         assert.strictEqual(authClient, googleAuthClient);
 
+        done();
+      });
+    });
+
+    it('should prefer the user-provided project ID', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function () {}
+      };
+      var badProjectId = 'bad-project-id';
+      var goodProjectId = 'good-project-id';
+
+      googleAuthLibraryOverride = function () {
+        return {
+          fromJSON: function (json, callback) {
+            callback(null, googleAuthClient, badProjectId);
+          }
+        };
+      };
+
+      auth.config = {
+        projectId: goodProjectId,
+        credentials: { a: 'b', c: 'd' }
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+        assert.strictEqual(auth.projectId, goodProjectId);
         done();
       });
     });
