@@ -232,17 +232,12 @@ class Auth {
   }
 
   isContainerEngine (callback) {
-    var env = this.environment;
+    setImmediate(() => {
+      var env = this.environment;
 
-    if (typeof env.IS_CONTAINER_ENGINE !== 'undefined') {
-      setImmediate(() => {
-        callback(null, env.IS_CONTAINER_ENGINE);
-      });
-      return;
-    }
-
-    gcpMetadata.instance('/attributes/cluster-name', err => {
-      env.IS_CONTAINER_ENGINE = !err;
+      if (typeof env.IS_CONTAINER_ENGINE === 'undefined') {
+        env.IS_CONTAINER_ENGINE = !!process.env.KUBERNETES_SERVICE_HOST;
+      }
 
       callback(null, env.IS_CONTAINER_ENGINE);
     });

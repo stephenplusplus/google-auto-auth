@@ -799,46 +799,26 @@ describe('googleAutoAuth', function () {
   });
 
   describe('isContainerEngine', function () {
-    it('should return an existing value', function (done) {
-      instanceOverride = done; // will make test fail if called
+    var ENV_VARS = [
+      'KUBERNETES_SERVICE_HOST'
+    ];
 
-      auth.environment.IS_CONTAINER_ENGINE = 'test';
-
-      auth.isContainerEngine(function (err, isContainerEngine) {
-        assert.ifError(err);
-        assert.strictEqual(isContainerEngine, 'test');
-        done();
+    afterEach(function () {
+      ENV_VARS.forEach(function (envVarName) {
+        delete process.env[envVarName];
       });
     });
 
-    it('should make the correct metadata lookup', function (done) {
-      instanceOverride = function (property) {
-        assert.strictEqual(property, '/attributes/cluster-name');
-        done();
-      };
-
-      auth.isContainerEngine(assert.ifError);
-    });
-
-    it('should set false if instance request errors', function (done) {
-      instanceOverride = function (property, callback) {
-        callback(new Error(':('));
-      };
-
-      assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
-
-      auth.isContainerEngine(function (err, isContainerEngine) {
+    it('should return false without env vars sets', function (done) {
+      auth.isCloudFunction(function (err, isContainerEngine) {
         assert.ifError(err);
-        assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, false);
         assert.strictEqual(isContainerEngine, false);
         done();
       });
     });
 
-    it('should set true if instance request succeeds', function (done) {
-      instanceOverride = function (property, callback) {
-        callback(null);
-      };
+    it('should detect KUBERNETES_SERVICE_HOST', function (done) {
+      process.env.KUBERNETES_SERVICE_HOST = 'service-host';
 
       assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
 
