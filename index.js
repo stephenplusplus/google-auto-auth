@@ -3,7 +3,7 @@
 var async = require('async');
 var crypto = require('crypto');
 var fs = require('fs');
-var GoogleAuth = require('google-auth-library');
+var GoogleAuth = require('google-auth-library').GoogleAuth;
 var gcpMetadata = require('gcp-metadata');
 var path = require('path');
 var request = require('request');
@@ -58,7 +58,7 @@ class Auth {
     }
 
     var createAuthClientPromise = (resolve, reject) => {
-      var googleAuthClient = this.googleAuthClient = new GoogleAuth.GoogleAuth();
+      var googleAuthClient = this.googleAuthClient = new GoogleAuth();
 
       var config = this.config;
       var keyFile = config.keyFilename || config.keyFile;
