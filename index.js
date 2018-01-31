@@ -58,7 +58,7 @@ class Auth {
     }
 
     var createAuthClientPromise = (resolve, reject) => {
-      var googleAuthClient = this.googleAuthClient = new GoogleAuth();
+      var googleAuthClient = this.googleAuthClient = new GoogleAuth.GoogleAuth();
 
       var config = this.config;
       var keyFile = config.keyFilename || config.keyFile;
