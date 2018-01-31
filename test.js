@@ -36,7 +36,7 @@ describe('googleAutoAuth', function () {
   var auth;
 
   before(function () {
-    mockery.registerMock('google-auth-library', fakeGoogleAuthLibrary);
+    mockery.registerMock('google-auth-library', { GoogleAuth: fakeGoogleAuthLibrary });
     mockery.registerMock('crypto', fakeCrypto);
     mockery.registerMock('request', fakeRequest);
     mockery.registerMock('gcp-metadata', fakeGcpMetadata);
