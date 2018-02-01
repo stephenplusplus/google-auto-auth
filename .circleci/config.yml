@@ -13,7 +13,7 @@ install_and_test: &install_and_test
         name: Test
         command: npm test
         environment:
-          GOOGLE_APPLICATION_CREDENTIALS: .circleci/key.json
+          GOOGLE_APPLICATION_CREDENTIALS: ~/project/.circleci/key.json
     - run:
         name: Remove key
         command: rm .circleci/key.json
