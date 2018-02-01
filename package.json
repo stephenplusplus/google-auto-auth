@@ -7,7 +7,7 @@
     "index.js"
   ],
   "scripts": {
-    "test": "mocha"
+    "test": "mocha --timeout 0"
   },
   "keywords": [
     "google",
@@ -39,6 +39,6 @@
     "request": "^2.79.0"
   },
   "engines": {
-    "node": ">=0.4.0"
+    "node": ">=4.0.0"
   }
 }
