@@ -3,12 +3,11 @@ version: 2
 install_and_test: &install_and_test
   steps:
     - checkout
-      - run:
-          name: Decrypt
-          environment:
-            GOOGLE_APPLICATION_CREDENTIALS: /var/storage/.circleci/key.json
-          command: |
-            openssl aes-256-cbc -d -in .circleci/key.json.enc -out .circleci/key.json -k "${KEY}"
+    - run:
+        name: Decrypt
+        environment:
+          GOOGLE_APPLICATION_CREDENTIALS: /var/storage/.circleci/key.json
+        command: openssl aes-256-cbc -d -in .circleci/key.json.enc -out .circleci/key.json -k "${KEY}"
     - run:
         name: Install
         command: npm install
