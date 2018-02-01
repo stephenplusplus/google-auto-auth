@@ -1011,7 +1011,7 @@ describe('googleAutoAuth', function () {
       };
 
       var signBlobApiResponse = {
-        toJSON: function() {
+        toJSON: function () {
           return {
             statusCode: 400,
             body: {
@@ -1042,7 +1042,7 @@ describe('googleAutoAuth', function () {
       var signBlobApiError = 'String error message';
 
       var signBlobApiResponse = {
-        toJSON: function() {
+        toJSON: function () {
           return {
             statusCode: 400,
             body: signBlobApiError
@@ -1118,6 +1118,23 @@ describe('googleAutoAuth', function () {
         assert.strictEqual(signature, expectedSignature);
         done();
       });
+    });
+  });
+});
+
+describe('integration test', function () {
+  var googleAutoAuth = require('./index.js');
+  var auth = googleAutoAuth({
+    scopes: ['https://www.googleapis.com/auth/cloud-platform']
+  });
+
+  it('should get a token from google-auth-library', function (done) {
+    auth.authorizeRequest({
+      uri: 'test'
+    }, function (err, authenticatedReqOpts) {
+      assert.ifError(err);
+      assert(typeof authenticatedReqOpts.headers.Authorization, 'string');
+      done();
     });
   });
 });
