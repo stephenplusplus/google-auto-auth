@@ -3,7 +3,7 @@
 var async = require('async');
 var crypto = require('crypto');
 var fs = require('fs');
-var GoogleAuth = require('google-auth-library');
+var GoogleAuth = require('google-auth-library').GoogleAuth;
 var gcpMetadata = require('gcp-metadata');
 var path = require('path');
 var request = require('request');
@@ -86,7 +86,12 @@ class Auth {
       };
 
       if (config.credentials) {
-        googleAuthClient.fromJSON(config.credentials, addScope);
+        try {
+          var client = googleAuthClient.fromJSON(config.credentials);
+          addScope(null, client);
+        } catch (e) {
+          addScope(e);
+        }
       } else if (keyFile) {
         keyFile = path.resolve(process.cwd(), keyFile);
 
@@ -97,7 +102,8 @@ class Auth {
           }
 
           try {
-            googleAuthClient.fromJSON(JSON.parse(contents), addScope);
+            var client = googleAuthClient.fromJSON(JSON.parse(contents));
+            addScope(null, client);
           } catch(e) {
             var authClient = new googleAuthClient.JWT();
             authClient.keyFile = keyFile;
