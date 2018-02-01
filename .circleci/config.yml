@@ -1,15 +1,24 @@
 version: 2
- 
+
 install_and_test: &install_and_test
   steps:
     - checkout
+    - run:
+        name: Decrypt
+        environment:
+          GOOGLE_APPLICATION_CREDENTIALS: /var/storage/.circleci/key.json
+        command: openssl aes-256-cbc -d -in .circleci/key.json.enc -out .circleci/key.json -k "${KEY}"
     - run:
         name: Install
         command: npm install
     - run:
         name: Test
         command: npm test
- 
+    - run:
+        name: Remove key
+        command: rm .circleci/key.json
+        when: always
+
 jobs:
   test_node4:
     docker:
@@ -23,7 +32,7 @@ jobs:
     docker:
       - image: node:8
     <<: *install_and_test
- 
+
 workflows:
   version: 2
   test:
