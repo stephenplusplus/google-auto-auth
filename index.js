@@ -241,11 +241,15 @@ class Auth {
       return;
     }
 
-    gcpMetadata.instance('/attributes/cluster-name', err => {
-      env.IS_CONTAINER_ENGINE = !err;
-
-      callback(null, env.IS_CONTAINER_ENGINE);
-    });
+    gcpMetadata.instance('/attributes/cluster-name')
+      .then(() => {
+        env.IS_CONTAINER_ENGINE = true;
+        callback(null, env.IS_CONTAINER_ENGINE);
+      })
+      .catch(() => {
+        env.IS_CONTAINER_ENGINE = false
+        callback(null, env.IS_CONTAINER_ENGINE);
+      });
   }
 
   sign (data, callback) {

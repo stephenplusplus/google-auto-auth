@@ -27,7 +27,7 @@ function fakeRequest() {
 var instanceOverride;
 var fakeGcpMetadata = {
   instance: function () {
-    return (instanceOverride || function () {}).apply(null, arguments);
+    return (instanceOverride || Promise.resolve).apply(null, arguments);
   }
 };
 
@@ -814,7 +814,8 @@ describe('googleAutoAuth', function () {
     it('should make the correct metadata lookup', function (done) {
       instanceOverride = function (property) {
         assert.strictEqual(property, '/attributes/cluster-name');
-        done();
+        setImmediate(done);
+        return Promise.resolve();
       };
 
       auth.isContainerEngine(assert.ifError);
@@ -822,7 +823,7 @@ describe('googleAutoAuth', function () {
 
     it('should set false if instance request errors', function (done) {
       instanceOverride = function (property, callback) {
-        callback(new Error(':('));
+        return Promise.reject(new Error(':('));
       };
 
       assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
@@ -837,7 +838,7 @@ describe('googleAutoAuth', function () {
 
     it('should set true if instance request succeeds', function (done) {
       instanceOverride = function (property, callback) {
-        callback(null);
+        return Promise.resolve();
       };
 
       assert.strictEqual(auth.environment.IS_CONTAINER_ENGINE, undefined);
