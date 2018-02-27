@@ -36,7 +36,6 @@
     "async": "^2.3.0",
     "gcp-metadata": "^0.6.1",
     "google-auth-library": "^1.2.0",
-    "gcp-metadata": "^0.6.1",
     "request": "^2.79.0"
   },
   "engines": {
