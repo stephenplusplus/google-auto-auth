@@ -36,7 +36,9 @@ describe('googleAutoAuth', function () {
   var auth;
 
   before(function () {
-    mockery.registerMock('google-auth-library', fakeGoogleAuthLibrary);
+    mockery.registerMock('google-auth-library', {
+      GoogleAuth: fakeGoogleAuthLibrary
+    });
     mockery.registerMock('crypto', fakeCrypto);
     mockery.registerMock('request', fakeRequest);
     mockery.registerMock('gcp-metadata', fakeGcpMetadata);
@@ -227,14 +229,12 @@ describe('googleAutoAuth', function () {
       var googleAuthClient = {
         createScopedRequired: function () {}
       };
-      var projectId = 'project-id';
 
       googleAuthLibraryOverride = function () {
         return {
-          fromJSON: function (json, callback) {
+          fromJSON: function (json) {
             assert.deepEqual(json, expectedJson);
-
-            callback(null, googleAuthClient, projectId);
+            return googleAuthClient;
           }
         };
       };
@@ -246,8 +246,6 @@ describe('googleAutoAuth', function () {
         assert.ifError(err);
 
         assert.strictEqual(authClient.scopes, auth.config.scopes);
-        assert.strictEqual(auth.projectId, projectId);
-
         assert.strictEqual(auth.authClient, googleAuthClient);
         assert.strictEqual(authClient, googleAuthClient);
 
@@ -266,14 +264,12 @@ describe('googleAutoAuth', function () {
       var googleAuthClient = {
         createScopedRequired: function () {}
       };
-      var projectId = 'project-id';
 
       googleAuthLibraryOverride = function () {
         return {
-          fromJSON: function (json, callback) {
+          fromJSON: function (json) {
             assert.deepEqual(json, expectedJson);
-
-            callback(null, googleAuthClient, projectId);
+            return googleAuthClient;
           }
         };
       };
@@ -285,8 +281,6 @@ describe('googleAutoAuth', function () {
         assert.ifError(err);
 
         assert.strictEqual(authClient.scopes, auth.config.scopes);
-        assert.strictEqual(auth.projectId, projectId);
-
         assert.strictEqual(auth.authClient, googleAuthClient);
         assert.strictEqual(authClient, googleAuthClient);
 
@@ -298,14 +292,12 @@ describe('googleAutoAuth', function () {
       var googleAuthClient = {
         createScopedRequired: function () {}
       };
-      var projectId = 'project-id';
 
       googleAuthLibraryOverride = function () {
         return {
-          fromJSON: function (json, callback) {
+          fromJSON: function (json) {
             assert.deepEqual(json, auth.config.credentials);
-
-            callback(null, googleAuthClient, projectId);
+            return googleAuthClient;
           }
         };
       };
@@ -316,39 +308,10 @@ describe('googleAutoAuth', function () {
 
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
-
-        assert.strictEqual(auth.projectId, projectId);
 
         assert.strictEqual(auth.authClient, googleAuthClient);
         assert.strictEqual(authClient, googleAuthClient);
 
-        done();
-      });
-    });
-
-    it('should prefer the user-provided project ID', function (done) {
-      var googleAuthClient = {
-        createScopedRequired: function () {}
-      };
-      var badProjectId = 'bad-project-id';
-      var goodProjectId = 'good-project-id';
-
-      googleAuthLibraryOverride = function () {
-        return {
-          fromJSON: function (json, callback) {
-            callback(null, googleAuthClient, badProjectId);
-          }
-        };
-      };
-
-      auth.config = {
-        projectId: goodProjectId,
-        credentials: { a: 'b', c: 'd' }
-      };
-
-      auth.getAuthClient(function (err, authClient) {
-        assert.ifError(err);
-        assert.strictEqual(auth.projectId, goodProjectId);
         done();
       });
     });
@@ -382,7 +345,6 @@ describe('googleAutoAuth', function () {
         email: 'example@example.com',
         scopes: ['dev.scope']
       };
-
 
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
@@ -419,6 +381,32 @@ describe('googleAutoAuth', function () {
         assert.strictEqual(auth.authClient, googleAuthClient);
         assert.strictEqual(authClient, googleAuthClient);
 
+        done();
+      });
+    });
+
+    it('should prefer the user-provided project ID', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function () {}
+      };
+      var badProjectId = 'bad-project-id';
+      var goodProjectId = 'good-project-id';
+
+      googleAuthLibraryOverride = function () {
+        return {
+          getApplicationDefault: function (callback) {
+            callback(null, googleAuthClient, badProjectId);
+          }
+        };
+      };
+
+      auth.config = {
+        projectId: goodProjectId
+      };
+
+      auth.getAuthClient(function (err, authClient) {
+        assert.ifError(err);
+        assert.strictEqual(auth.projectId, goodProjectId);
         done();
       });
     });
@@ -1123,13 +1111,13 @@ describe('googleAutoAuth', function () {
   });
 });
 
-describe('integration test', function () {
-  var googleAutoAuth = require('./index.js');
-  var auth = googleAutoAuth({
-    scopes: ['https://www.googleapis.com/auth/cloud-platform']
-  });
+var IS_AUTHED = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
-  it('should get a token from google-auth-library', function (done) {
+(IS_AUTHED ? describe : describe.skip)('integration test', function () {
+  var googleAutoAuth = require('./index.js');
+  var SCOPES = ['https://www.googleapis.com/auth/cloud-platform'];
+
+  function testWithAuthClient(auth, done) {
     auth.authorizeRequest({
       uri: 'test'
     }, function (err, authenticatedReqOpts) {
@@ -1137,5 +1125,29 @@ describe('integration test', function () {
       assert(typeof authenticatedReqOpts.headers.Authorization, 'string');
       done();
     });
+  }
+
+  it('should work with ADC', function (done) {
+    var authClient = googleAutoAuth({ scopes: SCOPES });
+
+    testWithAuthClient(authClient, done);
+  });
+
+  it('should work with key file path', function (done) {
+    var authClient = googleAutoAuth({
+      scopes: SCOPES,
+      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS
+    });
+
+    testWithAuthClient(authClient, done);
+  });
+
+  it('should work with credentials object', function (done) {
+    var authClient = googleAutoAuth({
+      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+      credentials: require(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+    });
+
+    testWithAuthClient(authClient, done);
   });
 });
