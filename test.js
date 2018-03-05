@@ -2,7 +2,6 @@
 
 var assert = require('assert');
 var fs = require('fs');
-var googleAuthLibrary = require('google-auth-library');
 var mockery = require('mockery');
 var path = require('path');
 
@@ -13,11 +12,16 @@ var fakeCrypto = {
   }
 };
 
-var googleAuthLibraryOverride;
-function fakeGoogleAuthLibrary() {
-  return (googleAuthLibraryOverride || googleAuthLibrary)
-    .apply(null, arguments);
-}
+var GoogleAuthOverride;
+var JWTOverride;
+var fakeGoogleAuthLibrary = {
+  GoogleAuth: function () {
+    return (GoogleAuthOverride || function () {}).apply(null, arguments);
+  },
+  JWT: function () {
+    return (JWTOverride || function () {}).apply(null, arguments);
+  },
+};
 
 var requestOverride;
 function fakeRequest() {
@@ -36,9 +40,7 @@ describe('googleAutoAuth', function () {
   var auth;
 
   before(function () {
-    mockery.registerMock('google-auth-library', {
-      GoogleAuth: fakeGoogleAuthLibrary
-    });
+    mockery.registerMock('google-auth-library', fakeGoogleAuthLibrary);
     mockery.registerMock('crypto', fakeCrypto);
     mockery.registerMock('request', fakeRequest);
     mockery.registerMock('gcp-metadata', fakeGcpMetadata);
@@ -59,8 +61,9 @@ describe('googleAutoAuth', function () {
   beforeEach(function () {
     createSignOverride = null;
     requestOverride = null;
-    googleAuthLibraryOverride = null;
+    GoogleAuthOverride = null;
     instanceOverride = null;
+    JWTOverride = null;
     auth = googleAutoAuth();
   });
 
@@ -170,7 +173,7 @@ describe('googleAutoAuth', function () {
     it('should create an authClientPromise', function (done) {
       var authClient = {};
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           getApplicationDefault: function (callback) {
             callback(null, authClient);
@@ -194,7 +197,7 @@ describe('googleAutoAuth', function () {
     it('should use google-auth-library', function () {
       var googleAuthLibraryCalled = false;
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         googleAuthLibraryCalled = true;
         return {
           getApplicationDefault: function () {}
@@ -210,7 +213,7 @@ describe('googleAutoAuth', function () {
         getApplicationDefault: function () {}
       };
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return googleAuthClient;
       };
 
@@ -230,7 +233,7 @@ describe('googleAutoAuth', function () {
         createScopedRequired: function () {}
       };
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           fromJSON: function (json) {
             assert.deepEqual(json, expectedJson);
@@ -265,7 +268,7 @@ describe('googleAutoAuth', function () {
         createScopedRequired: function () {}
       };
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           fromJSON: function (json) {
             assert.deepEqual(json, expectedJson);
@@ -293,7 +296,7 @@ describe('googleAutoAuth', function () {
         createScopedRequired: function () {}
       };
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           fromJSON: function (json) {
             assert.deepEqual(json, auth.config.credentials);
@@ -317,7 +320,7 @@ describe('googleAutoAuth', function () {
     });
 
     it('should return error if file does not exist', function (done) {
-      googleAuthLibraryOverride = function () {};
+      GoogleAuthOverride = function () {};
 
       auth.config = {
         keyFilename: 'non-existent-key.pem'
@@ -334,30 +337,28 @@ describe('googleAutoAuth', function () {
         createScopedRequired: function () {}
       };
 
-      googleAuthLibraryOverride = function () {
-        return {
-          JWT: function () { return jwt; }
-        };
+      JWTOverride = function (config) {
+        assert.strictEqual(config.email, auth.config.email);
+
+        var expectedKey = path.resolve(process.cwd(), auth.config.keyFilename);
+        assert.strictEqual(config.keyFile, expectedKey);
+
+        assert.strictEqual(config.key, auth.config.key);
+
+        return jwt;
       };
 
       auth.config = {
         keyFilename: './test.keyfile.pem',
         email: 'example@example.com',
+        key: 'notasecret',
         scopes: ['dev.scope']
       };
 
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
-
-        var expectedKey = path.resolve(process.cwd(), auth.config.keyFilename);
-        assert.strictEqual(jwt.keyFile, expectedKey);
-
-        assert.strictEqual(jwt.email, auth.config.email);
-        assert.strictEqual(jwt.scopes, auth.config.scopes);
-
         assert.strictEqual(auth.authClient, jwt);
         assert.strictEqual(authClient, jwt);
-
         done();
       });
     });
@@ -367,7 +368,7 @@ describe('googleAutoAuth', function () {
         createScopedRequired: function () {}
       };
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           getApplicationDefault: function (callback) {
             callback(null, googleAuthClient);
@@ -392,7 +393,7 @@ describe('googleAutoAuth', function () {
       var badProjectId = 'bad-project-id';
       var goodProjectId = 'good-project-id';
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           getApplicationDefault: function (callback) {
             callback(null, googleAuthClient, badProjectId);
@@ -422,7 +423,7 @@ describe('googleAutoAuth', function () {
         }
       };
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           getApplicationDefault: function (callback) {
             callback(null, fakeAuthClient);
@@ -440,7 +441,7 @@ describe('googleAutoAuth', function () {
     it('should pass back any errors from the authClient', function (done) {
       var error = new Error('Error.');
 
-      googleAuthLibraryOverride = function () {
+      GoogleAuthOverride = function () {
         return {
           getApplicationDefault: function (callback) {
             callback(error);
@@ -1137,6 +1138,32 @@ var IS_AUTHED = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
     var authClient = googleAutoAuth({
       scopes: SCOPES,
       keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS
+    });
+
+    testWithAuthClient(authClient, done);
+  });
+
+  it.skip('should work with a p12 file', function (done) {
+    // @TODO add encrypted file to Circle
+    // @TODO create p12 key for `circle` service account
+    var authClient = googleAutoAuth({
+      scopes: SCOPES,
+      email: 'circle@nth-circlet-705.iam.gserviceaccount.com',
+      keyFile: process.env.P12_KEYFILE,
+      key: 'notasecret'
+    });
+
+    testWithAuthClient(authClient, done);
+  });
+
+  it.skip('should work with a pem file', function (done) {
+    // @TODO add encrypted file to Circle
+    // @TODO create pem key for `circle` service account
+    var authClient = googleAutoAuth({
+      scopes: SCOPES,
+      email: '...',
+      keyFile: process.env.PEM_KEYFILE,
+      key: 'notasecret'
     });
 
     testWithAuthClient(authClient, done);

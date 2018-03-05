@@ -3,8 +3,8 @@
 var async = require('async');
 var crypto = require('crypto');
 var fs = require('fs');
-var GoogleAuth = require('google-auth-library').GoogleAuth;
 var gcpMetadata = require('gcp-metadata');
+var googleAuthLibrary = require('google-auth-library');
 var path = require('path');
 var request = require('request');
 
@@ -58,10 +58,9 @@ class Auth {
     }
 
     var createAuthClientPromise = (resolve, reject) => {
-      var googleAuthClient = this.googleAuthClient = new GoogleAuth();
-
       var config = this.config;
       var keyFile = config.keyFilename || config.keyFile;
+      var googleAuthClient;
 
       var addScope = (err, authClient, projectId) => {
         if (err) {
@@ -86,6 +85,8 @@ class Auth {
       };
 
       if (config.credentials) {
+        googleAuthClient = new googleAuthLibrary.GoogleAuth();
+
         try {
           var client = googleAuthClient.fromJSON(config.credentials);
           addScope(null, client);
@@ -102,18 +103,24 @@ class Auth {
           }
 
           try {
+            googleAuthClient = new googleAuthLibrary.GoogleAuth();
             var client = googleAuthClient.fromJSON(JSON.parse(contents));
             addScope(null, client);
           } catch(e) {
-            var authClient = new googleAuthClient.JWT();
-            authClient.keyFile = keyFile;
-            authClient.email = config.email;
-            addScope(null, authClient);
+            googleAuthClient = new googleAuthLibrary.JWT({
+              email: config.email,
+              keyFile: keyFile,
+              key: config.key
+            });
+            addScope(null, googleAuthClient);
           }
         });
       } else {
+        googleAuthClient = new googleAuthLibrary.GoogleAuth();
         googleAuthClient.getApplicationDefault(addScope);
       }
+
+      this.googleAuthClient = googleAuthClient;
     };
 
     if (!this.authClientPromise) {
@@ -303,7 +310,7 @@ class Auth {
         return;
       }
 
-      request(authorizedReqOpts, function(err, resp, body) {
+      request(authorizedReqOpts, function (err, resp, body) {
         var response = resp.toJSON();
 
         if (!err && response.statusCode < 200 || response.statusCode >= 400) {
