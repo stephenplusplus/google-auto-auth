@@ -109,8 +109,7 @@ class Auth {
           } catch(e) {
             googleAuthClient = new googleAuthLibrary.JWT({
               email: config.email,
-              keyFile: keyFile,
-              key: config.key
+              keyFile: keyFile
             });
             addScope(null, googleAuthClient);
           }

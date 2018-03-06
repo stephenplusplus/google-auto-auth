@@ -351,7 +351,6 @@ describe('googleAutoAuth', function () {
       auth.config = {
         keyFilename: './test.keyfile.pem',
         email: 'example@example.com',
-        key: 'notasecret',
         scopes: ['dev.scope']
       };
 
@@ -1112,11 +1111,20 @@ describe('googleAutoAuth', function () {
   });
 });
 
-var IS_AUTHED = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-(IS_AUTHED ? describe : describe.skip)('integration test', function () {
+describe('integration tests', function () {
   var googleAutoAuth = require('./index.js');
   var SCOPES = ['https://www.googleapis.com/auth/cloud-platform'];
+
+  var ADC = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  var EMAIL = process.env.P12_EMAIL;
+  var P12 = process.env.P12_KEYFILE;
+  var PEM = process.env.PEM_KEYFILE;
+
+  before(function () {
+    if ((P12 || PEM) && !EMAIL) {
+      throw new Error('If specifying a P12 or PEM key file, you must set `P12_EMAIL` env var as well.');
+    }
+  });
 
   function testWithAuthClient(auth, done) {
     auth.authorizeRequest({
@@ -1128,51 +1136,49 @@ var IS_AUTHED = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
     });
   }
 
-  it('should work with ADC', function (done) {
+  (ADC ? it : it.skip)('should work with ADC', function (done) {
     var authClient = googleAutoAuth({ scopes: SCOPES });
 
     testWithAuthClient(authClient, done);
   });
 
-  it('should work with key file path', function (done) {
+  (ADC ? it : it.skip)('should work with key file path', function (done) {
     var authClient = googleAutoAuth({
       scopes: SCOPES,
-      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS
+      keyFile: ADC
     });
 
     testWithAuthClient(authClient, done);
   });
 
-  it.skip('should work with a p12 file', function (done) {
+  (P12 ? it : it.skip)('should work with a p12 file', function (done) {
     // @TODO add encrypted file to Circle
     // @TODO create p12 key for `circle` service account
     var authClient = googleAutoAuth({
       scopes: SCOPES,
-      email: 'circle@nth-circlet-705.iam.gserviceaccount.com',
-      keyFile: process.env.P12_KEYFILE,
-      key: 'notasecret'
+      email: EMAIL,
+      keyFile: P12
     });
 
     testWithAuthClient(authClient, done);
   });
 
-  it.skip('should work with a pem file', function (done) {
+  (PEM ? it : it.skip)('should work with a pem file', function (done) {
     // @TODO add encrypted file to Circle
     // @TODO create pem key for `circle` service account
     var authClient = googleAutoAuth({
       scopes: SCOPES,
-      email: '...',
-      keyFile: process.env.PEM_KEYFILE,
-      key: 'notasecret'
+      email: EMAIL,
+      keyFile: PEM
     });
 
     testWithAuthClient(authClient, done);
   });
 
-  it('should work with credentials object', function (done) {
+  (ADC ? it : it.skip)('should work with credentials object', function (done) {
     var authClient = googleAutoAuth({
       scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      credentials: require(process.env.GOOGLE_APPLICATION_CREDENTIALS)
+      credentials: require(ADC)
     });
 
     testWithAuthClient(authClient, done);
