@@ -1,3 +1,6 @@
 node_modules
 coverage
+*.json
 *.log
+*.p12
+*.pem

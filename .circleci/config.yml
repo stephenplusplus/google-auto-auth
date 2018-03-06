@@ -4,8 +4,14 @@ install_and_test: &install_and_test
   steps:
     - checkout
     - run:
-        name: Decrypt
+        name: Decrypt JSON key
         command: openssl aes-256-cbc -d -in .circleci/key.json.enc -out .circleci/key.json -k "${KEY}"
+    - run:
+        name: Decrypt P12 key
+        command: openssl aes-256-cbc -d -in .circleci/key.p12.enc -out .circleci/key.p12 -k "${KEY_2}"
+    - run:
+        name: Decrypt PEM key
+        command: openssl aes-256-cbc -d -in .circleci/key.pem.enc -out .circleci/key.pem -k "${KEY_2}"
     - run:
         name: Install
         command: npm install
@@ -14,9 +20,12 @@ install_and_test: &install_and_test
         command: npm test
         environment:
           GOOGLE_APPLICATION_CREDENTIALS: /root/project/.circleci/key.json
+          P12_EMAIL: stephen-windows@nth-circlet-705.iam.gserviceaccount.com
+          P12_KEYFILE: /root/project/.circleci/key.p12
+          PEM_KEYFILE: /root/project/.circleci/key.pem
     - run:
         name: Remove key
-        command: rm .circleci/key.json
+        command: rm .circleci/key*
         when: always
 
 jobs:
