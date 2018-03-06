@@ -1152,8 +1152,6 @@ describe('integration tests', function () {
   });
 
   (P12 ? it : it.skip)('should work with a p12 file', function (done) {
-    // @TODO add encrypted file to Circle
-    // @TODO create p12 key for `circle` service account
     var authClient = googleAutoAuth({
       scopes: SCOPES,
       email: EMAIL,
@@ -1164,8 +1162,6 @@ describe('integration tests', function () {
   });
 
   (PEM ? it : it.skip)('should work with a pem file', function (done) {
-    // @TODO add encrypted file to Circle
-    // @TODO create pem key for `circle` service account
     var authClient = googleAutoAuth({
       scopes: SCOPES,
       email: EMAIL,
