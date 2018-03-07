@@ -72,7 +72,7 @@ describe('googleAutoAuth', function () {
       assert.strictEqual(auth.credentials, null);
       assert.deepStrictEqual(auth.environment, {});
       assert.strictEqual(auth.projectId, undefined);
-      assert.strictEqual(auth.isJWTClient, false);
+      assert.strictEqual(auth.jwtClient, null);
     });
 
     it('should cache config', function () {
@@ -364,7 +364,7 @@ describe('googleAutoAuth', function () {
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
         assert.strictEqual(auth.authClient, jwt);
-        assert.strictEqual(auth.isJWTClient, true);
+        assert.strictEqual(auth.jwtClient, jwt);
 
         assert.strictEqual(jwt.key, undefined);
         assert.strictEqual(jwt.keyFile, expectedKey);
@@ -573,6 +573,61 @@ describe('googleAutoAuth', function () {
       auth.getCredentials(function (err) {
         assert.strictEqual(err, error);
         done();
+      });
+    });
+
+    describe('JWT client', function () {
+      var CREDENTIALS = {};
+      var PRIVATE_KEY = 'private-key';
+
+      beforeEach(function () {
+        CREDENTIALS = {};
+
+        auth.jwtClient = {
+          authorize: function (callback) {
+            auth.jwtClient.key = PRIVATE_KEY;
+            callback();
+          }
+        };
+
+        auth.googleAuthClient = {
+          getCredentials: function (callback) {
+            callback(null, CREDENTIALS);
+          }
+        };
+
+        auth.getAuthClient = function (callback) {
+          callback();
+        };
+      });
+
+      it('should authorize the client', function (done) {
+        auth.jwtClient.authorize = function () {
+          done();
+        };
+
+        auth.getCredentials(assert.ifError);
+      });
+
+      it('should return an error from authorization', function (done) {
+        var error = new Error('Error.');
+
+        auth.jwtClient.authorize = function (callback) {
+          callback(error);
+        };
+
+        auth.getCredentials(function (err) {
+          assert.strictEqual(err, error);
+          done();
+        });
+      });
+
+      it('should set private_key property', function (done) {
+        auth.getCredentials(function (err, credentials) {
+          assert.ifError(err);
+          assert.strictEqual(credentials.private_key, PRIVATE_KEY);
+          done();
+        });
       });
     });
   });
@@ -908,23 +963,6 @@ describe('googleAutoAuth', function () {
       auth.getCredentials = function (callback) {
         callback(null, {
           private_key: 'private-key'
-        });
-      };
-
-      auth.sign(DATA_TO_SIGN, done);
-    });
-
-    it('should sign with API if JWT Client', function (done) {
-      auth.isJWTClient = true;
-
-      auth._signWithApi = function (data, callback) {
-        assert.strictEqual(data, DATA_TO_SIGN);
-        callback(); // done()
-      };
-
-      auth.getCredentials = function (callback) {
-        callback(null, {
-          private_key: 'private-key.pem'
         });
       };
 

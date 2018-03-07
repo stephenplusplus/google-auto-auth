@@ -16,7 +16,7 @@ class Auth {
     this.config = config || {};
     this.credentials = null;
     this.environment = {};
-    this.isJWTClient = false;
+    this.jwtClient = null;
     this.projectId = this.config.projectId;
   }
 
@@ -129,7 +129,7 @@ class Auth {
             });
             delete client.key;
             client.keyFile = keyFile;
-            this.isJWTClient = true;
+            this.jwtClient = client;
             addScope(null, client);
           }
         });
@@ -173,7 +173,21 @@ class Auth {
 
         this.credentials = credentials;
 
-        callback(null, credentials);
+        if (this.jwtClient) {
+          this.jwtClient.authorize(err => {
+            if (err) {
+              callback(err);
+              return;
+            }
+
+            this.credentials.private_key = this.jwtClient.key;
+
+            callback(null, this.credentials);
+          });
+          return;
+        }
+
+        callback(null, this.credentials);
       });
     });
   }
@@ -287,7 +301,7 @@ class Auth {
         return;
       }
 
-      if (credentials.private_key && !this.isJWTClient) {
+      if (credentials.private_key) {
         this._signWithPrivateKey(data, callback);
       } else {
         this._signWithApi(data, callback);
