@@ -1,6 +1,7 @@
 'use strict';
 
 var assert = require('assert');
+var async = require('async');
 var fs = require('fs');
 var mockery = require('mockery');
 var path = require('path');
@@ -13,13 +14,9 @@ var fakeCrypto = {
 };
 
 var GoogleAuthOverride;
-var JWTOverride;
 var fakeGoogleAuthLibrary = {
   GoogleAuth: function () {
     return (GoogleAuthOverride || function () {}).apply(null, arguments);
-  },
-  JWT: function () {
-    return (JWTOverride || function () {}).apply(null, arguments);
   },
 };
 
@@ -63,7 +60,6 @@ describe('googleAutoAuth', function () {
     requestOverride = null;
     GoogleAuthOverride = null;
     instanceOverride = null;
-    JWTOverride = null;
     auth = googleAutoAuth();
   });
 
@@ -76,6 +72,7 @@ describe('googleAutoAuth', function () {
       assert.strictEqual(auth.credentials, null);
       assert.deepStrictEqual(auth.environment, {});
       assert.strictEqual(auth.projectId, undefined);
+      assert.strictEqual(auth.jwtClient, null);
     });
 
     it('should cache config', function () {
@@ -171,7 +168,9 @@ describe('googleAutoAuth', function () {
     });
 
     it('should create an authClientPromise', function (done) {
-      var authClient = {};
+      var authClient = {
+        projectId: 'project-id'
+      };
 
       GoogleAuthOverride = function () {
         return {
@@ -230,7 +229,8 @@ describe('googleAutoAuth', function () {
       var expectedJson = require('./test.keyfile.json');
 
       var googleAuthClient = {
-        createScopedRequired: function () {}
+        createScopedRequired: function () {},
+        projectId: 'project-id'
       };
 
       GoogleAuthOverride = function () {
@@ -265,7 +265,8 @@ describe('googleAutoAuth', function () {
       var expectedJson = JSON.parse(fs.readFileSync('./test.keyfile'));
 
       var googleAuthClient = {
-        createScopedRequired: function () {}
+        createScopedRequired: function () {},
+        projectId: 'project-id'
       };
 
       GoogleAuthOverride = function () {
@@ -293,7 +294,8 @@ describe('googleAutoAuth', function () {
 
     it('should create an auth client from credentials', function (done) {
       var googleAuthClient = {
-        createScopedRequired: function () {}
+        createScopedRequired: function () {},
+        projectId: 'project-id'
       };
 
       GoogleAuthOverride = function () {
@@ -334,18 +336,8 @@ describe('googleAutoAuth', function () {
 
     it('should create a JWT auth client from non-JSON', function (done) {
       var jwt = {
-        createScopedRequired: function () {}
-      };
-
-      JWTOverride = function (config) {
-        assert.strictEqual(config.email, auth.config.email);
-
-        var expectedKey = path.resolve(process.cwd(), auth.config.keyFilename);
-        assert.strictEqual(config.keyFile, expectedKey);
-
-        assert.strictEqual(config.key, auth.config.key);
-
-        return jwt;
+        createScopedRequired: function () {},
+        projectId: 'project-id'
       };
 
       auth.config = {
@@ -354,9 +346,29 @@ describe('googleAutoAuth', function () {
         scopes: ['dev.scope']
       };
 
+      var expectedKey = path.resolve(process.cwd(), auth.config.keyFilename);
+
+      GoogleAuthOverride = function () {
+        return {
+          fromJSON: function (config) {
+            assert.strictEqual(config.type, 'jwt-pem-p12');
+            assert.strictEqual(config.client_email, auth.config.email);
+
+            assert.strictEqual(config.private_key, expectedKey);
+
+            return jwt;
+          }
+        };
+      };
+
       auth.getAuthClient(function (err, authClient) {
         assert.ifError(err);
         assert.strictEqual(auth.authClient, jwt);
+        assert.strictEqual(auth.jwtClient, jwt);
+
+        assert.strictEqual(jwt.key, undefined);
+        assert.strictEqual(jwt.keyFile, expectedKey);
+
         assert.strictEqual(authClient, jwt);
         done();
       });
@@ -364,7 +376,8 @@ describe('googleAutoAuth', function () {
 
     it('should create an auth client from magic', function (done) {
       var googleAuthClient = {
-        createScopedRequired: function () {}
+        createScopedRequired: function () {},
+        projectId: 'project-id'
       };
 
       GoogleAuthOverride = function () {
@@ -387,7 +400,8 @@ describe('googleAutoAuth', function () {
 
     it('should prefer the user-provided project ID', function (done) {
       var googleAuthClient = {
-        createScopedRequired: function () {}
+        createScopedRequired: function () {},
+        projectId: 'project-id'
       };
       var badProjectId = 'bad-project-id';
       var goodProjectId = 'good-project-id';
@@ -404,9 +418,36 @@ describe('googleAutoAuth', function () {
         projectId: goodProjectId
       };
 
-      auth.getAuthClient(function (err, authClient) {
+      auth.getAuthClient(function (err) {
         assert.ifError(err);
         assert.strictEqual(auth.projectId, goodProjectId);
+        done();
+      });
+    });
+
+    it('should get a project ID from auth client', function (done) {
+      var googleAuthClient = {
+        createScopedRequired: function () {}
+      };
+
+      var projectId = 'detected-default-project-id';
+
+      GoogleAuthOverride = function () {
+        return {
+          getApplicationDefault: function (callback) {
+            callback(null, googleAuthClient);
+          },
+          getDefaultProjectId: function (callback) {
+            callback(null, projectId);
+          }
+        };
+      };
+
+      auth.config = {};
+
+      auth.getAuthClient(function (err) {
+        assert.ifError(err);
+        assert.strictEqual(auth.projectId, projectId);
         done();
       });
     });
@@ -419,7 +460,8 @@ describe('googleAutoAuth', function () {
       var fakeAuthClient = {
         createScopedRequired: function () {
           return true;
-        }
+        },
+        projectId: 'project-id'
       };
 
       GoogleAuthOverride = function () {
@@ -444,7 +486,8 @@ describe('googleAutoAuth', function () {
         return {
           getApplicationDefault: function (callback) {
             callback(error);
-          }
+          },
+          projectId: 'project-id'
         };
       };
 
@@ -530,6 +573,61 @@ describe('googleAutoAuth', function () {
       auth.getCredentials(function (err) {
         assert.strictEqual(err, error);
         done();
+      });
+    });
+
+    describe('JWT client', function () {
+      var CREDENTIALS = {};
+      var PRIVATE_KEY = 'private-key';
+
+      beforeEach(function () {
+        CREDENTIALS = {};
+
+        auth.jwtClient = {
+          authorize: function (callback) {
+            auth.jwtClient.key = PRIVATE_KEY;
+            callback();
+          }
+        };
+
+        auth.googleAuthClient = {
+          getCredentials: function (callback) {
+            callback(null, CREDENTIALS);
+          }
+        };
+
+        auth.getAuthClient = function (callback) {
+          callback();
+        };
+      });
+
+      it('should authorize the client', function (done) {
+        auth.jwtClient.authorize = function () {
+          done();
+        };
+
+        auth.getCredentials(assert.ifError);
+      });
+
+      it('should return an error from authorization', function (done) {
+        var error = new Error('Error.');
+
+        auth.jwtClient.authorize = function (callback) {
+          callback(error);
+        };
+
+        auth.getCredentials(function (err) {
+          assert.strictEqual(err, error);
+          done();
+        });
+      });
+
+      it('should set private_key property', function (done) {
+        auth.getCredentials(function (err, credentials) {
+          assert.ifError(err);
+          assert.strictEqual(credentials.private_key, PRIVATE_KEY);
+          done();
+        });
       });
     });
   });
@@ -1126,14 +1224,35 @@ describe('integration tests', function () {
     }
   });
 
-  function testWithAuthClient(auth, done) {
-    auth.authorizeRequest({
+  function testGetCredentials(authClient, callback) {
+    authClient.getCredentials(callback);
+  }
+
+  function testAuthorizeRequest(authClient, callback) {
+    authClient.authorizeRequest({
       uri: 'test'
     }, function (err, authenticatedReqOpts) {
-      assert.ifError(err);
+      if (err) {
+        callback(err);
+        return;
+      }
+
       assert(typeof authenticatedReqOpts.headers.Authorization, 'string');
-      done();
+
+      callback();
     });
+  }
+
+  function testSign(authClient, callback) {
+    authClient.sign('Test', callback);
+  }
+
+  function testWithAuthClient(authClient, done) {
+    async.parallel([
+      callback => testGetCredentials(authClient, callback),
+      callback => testAuthorizeRequest(authClient, callback),
+      callback => testSign(authClient, callback)
+    ], done);
   }
 
   (ADC ? it : it.skip)('should work with ADC', function (done) {
