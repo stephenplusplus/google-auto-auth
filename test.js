@@ -14,14 +14,10 @@ var fakeCrypto = {
 };
 
 var GoogleAuthOverride;
-var JWTOverride;
 var fakeGoogleAuthLibrary = {
   GoogleAuth: function () {
     return (GoogleAuthOverride || function () {}).apply(null, arguments);
   },
-  JWT: function () {
-    return (JWTOverride || function () {}).apply(null, arguments);
-  }
 };
 
 var requestOverride;
@@ -64,7 +60,6 @@ describe('googleAutoAuth', function () {
     requestOverride = null;
     GoogleAuthOverride = null;
     instanceOverride = null;
-    JWTOverride = null;
     auth = googleAutoAuth();
   });
 
