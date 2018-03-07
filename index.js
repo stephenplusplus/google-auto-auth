@@ -3,8 +3,8 @@
 var async = require('async');
 var crypto = require('crypto');
 var fs = require('fs');
+var GoogleAuth = require('google-auth-library').GoogleAuth;
 var gcpMetadata = require('gcp-metadata');
-var googleAuthLibrary = require('google-auth-library');
 var path = require('path');
 var request = require('request');
 
@@ -16,6 +16,7 @@ class Auth {
     this.config = config || {};
     this.credentials = null;
     this.environment = {};
+    this.isJWTClient = false;
     this.projectId = this.config.projectId;
   }
 
@@ -60,7 +61,8 @@ class Auth {
     var createAuthClientPromise = (resolve, reject) => {
       var config = this.config;
       var keyFile = config.keyFilename || config.keyFile;
-      var googleAuthClient;
+
+      this.googleAuthClient = new GoogleAuth();
 
       var addScope = (err, authClient, projectId) => {
         if (err) {
@@ -81,14 +83,25 @@ class Auth {
         this.authClient = authClient;
         this.projectId = config.projectId || projectId || authClient.projectId;
 
+        if (!this.projectId) {
+          this.googleAuthClient.getDefaultProjectId((err, projectId) => {
+            // Ignore error, since the user might not require a project ID.
+
+            if (projectId) {
+              this.projectId = projectId;
+            }
+
+            resolve(authClient);
+          });
+          return;
+        }
+
         resolve(authClient);
       };
 
       if (config.credentials) {
-        googleAuthClient = new googleAuthLibrary.GoogleAuth();
-
         try {
-          var client = googleAuthClient.fromJSON(config.credentials);
+          var client = this.googleAuthClient.fromJSON(config.credentials);
           addScope(null, client);
         } catch (e) {
           addScope(e);
@@ -103,23 +116,26 @@ class Auth {
           }
 
           try {
-            googleAuthClient = new googleAuthLibrary.GoogleAuth();
-            var client = googleAuthClient.fromJSON(JSON.parse(contents));
+            var client = this.googleAuthClient.fromJSON(JSON.parse(contents));
             addScope(null, client);
           } catch(e) {
-            googleAuthClient = new googleAuthLibrary.JWT({
-              email: config.email,
-              keyFile: keyFile
+            // @TODO Find a better way to do this.
+            // Ref: https://github.com/googleapis/nodejs-storage/issues/147
+            // Ref: https://github.com/google/google-auth-library-nodejs/issues/313
+            var client = this.googleAuthClient.fromJSON({
+              type: 'jwt-pem-p12',
+              client_email: config.email,
+              private_key: keyFile
             });
-            addScope(null, googleAuthClient);
+            delete client.key;
+            client.keyFile = keyFile;
+            this.isJWTClient = true;
+            addScope(null, client);
           }
         });
       } else {
-        googleAuthClient = new googleAuthLibrary.GoogleAuth();
-        googleAuthClient.getApplicationDefault(addScope);
+        this.googleAuthClient.getApplicationDefault(addScope);
       }
-
-      this.googleAuthClient = googleAuthClient;
     };
 
     if (!this.authClientPromise) {
@@ -271,7 +287,7 @@ class Auth {
         return;
       }
 
-      if (credentials.private_key) {
+      if (credentials.private_key && !this.isJWTClient) {
         this._signWithPrivateKey(data, callback);
       } else {
         this._signWithApi(data, callback);
