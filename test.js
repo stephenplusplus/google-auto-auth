@@ -73,6 +73,7 @@ describe('googleAutoAuth', function () {
       assert.deepStrictEqual(auth.environment, {});
       assert.strictEqual(auth.projectId, undefined);
       assert.strictEqual(auth.jwtClient, null);
+      assert.strictEqual(auth.token, null);
     });
 
     it('should cache config', function () {
@@ -711,6 +712,20 @@ describe('googleAutoAuth', function () {
   });
 
   describe('getToken', function () {
+    it('should return token if provided by user', function (done) {
+      auth.getAuthClient = function () {
+        throw new Error('Should not have called auth client')
+      };
+
+      auth.token = 'abc';
+
+      auth.getToken(function (err, token) {
+        assert.ifError(err);
+        assert.strictEqual(token, auth.token);
+        done();
+      });
+    });
+
     it('should get an auth client', function (done) {
       auth.getAuthClient = function () {
         done();
@@ -1297,5 +1312,16 @@ describe('integration tests', function () {
     });
 
     testWithAuthClient(authClient, done);
+  });
+
+  (ADC ? it : it.skip)('should work with a provided token', function (done) {
+    var authClient = googleAutoAuth({scopes: SCOPES});
+
+    authClient.getToken(function (err, token) {
+      assert.ifError(err);
+
+      var authClientWithToken = googleAutoAuth({scopes: SCOPES, token});
+      testWithAuthClient(authClientWithToken, done);
+    });
   });
 });
