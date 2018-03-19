@@ -714,7 +714,7 @@ describe('googleAutoAuth', function () {
   describe('getToken', function () {
     it('should return token if provided by user', function (done) {
       auth.getAuthClient = function () {
-        throw new Error('Should not have called auth client')
+        throw new Error('Should not have called auth client');
       };
 
       auth.token = 'abc';
