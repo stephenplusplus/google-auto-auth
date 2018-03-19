@@ -38,11 +38,11 @@ auth.getToken(function (err, token) {
 <a name="automatic-if"></a>
 This works automatically **if**:
 
-  - your app runs on Google Compute Engine
+  - your app runs on Google Cloud Platform
   - you are authenticated with the `gcloud` sdk
   - you have the path to a JSON key file as an environment variable named `GOOGLE_APPLICATION_CREDENTIALS`
 
-If you do not meet those, you must provide a keyFile or credentials object.
+If you do not meet those, you must provide a `keyFilename` or `credentials` object.
 
 ```js
 var googleAuth = require('google-auto-auth');
@@ -77,16 +77,13 @@ auth.getToken(function (err, token) {});
 
 See the above section on Authentication. This object is necessary if automatic authentication is not available in your environment.
 
-Everything from the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/google-cloud-node/#/docs/google-cloud/master/guides/authentication) applies here.
-
 At a glance, the supported properties for this method are:
 
-- `keyFilename` - Path to a .json, .pem, or .p12 key file
 - `credentials` - Object containing `client_email` and `private_key` properties
+- `keyFilename` - Path to a .json, .pem, or .p12 key file
+- `projectId` - Your project ID
 - `scopes` - Required scopes for the desired API request
-- `projectId` - Your project ID.
-
-For more details, see the Authentication Guide linked above, under "The config object".
+- `token` - An access token. If provided, we'll use this instead of fetching a new one
 
 #### auth.authorizeRequest(reqOpts, callback)
 
@@ -188,7 +185,7 @@ An error that occurred while trying to get an authorization client.
 
 - Type: `string`
 
-The project ID that was parsed from the provided keyfile or auto-detected from the environment.
+The project ID that was parsed from the provided key file or auto-detected from the environment.
 
 
 #### auth.getToken(callback)
@@ -201,13 +198,13 @@ Get an access token. The token will always be current. If necessary, background 
 
 - Type: `Error`
 
-An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request. There are examples of scopes that are required for some of the Google Cloud Platform services in the [gcloud-node Authentication Guide](https://googlecloudplatform.github.io/gcloud-node/#/authentication).
+An API error or an error if scopes are required for the request you're trying to make (check for err.code = `MISSING_SCOPE`). If you receive the missing scope error, provide the `authConfig.scopes` array with the necessary scope URLs for your request.
 
 ###### callback.token
 
 - Type: `String`
 
-A current access token to be used during an API request.
+A current access token to be used during an API request. If you provided `authConfig.token`, this method simply returns the value you passed.
 
 
 #### auth.isAppEngine(callback)
