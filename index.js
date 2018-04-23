@@ -18,7 +18,7 @@ class Auth {
     this.environment = {};
     this.jwtClient = null;
     this.projectId = this.config.projectId;
-    this.token = null;
+    this.token = this.config.token;
   }
 
   authorizeRequest (reqOpts, callback) {
