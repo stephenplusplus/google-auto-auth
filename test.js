@@ -73,7 +73,7 @@ describe('googleAutoAuth', function () {
       assert.deepStrictEqual(auth.environment, {});
       assert.strictEqual(auth.projectId, undefined);
       assert.strictEqual(auth.jwtClient, null);
-      assert.strictEqual(auth.token, null);
+      assert.strictEqual(auth.token, undefined);
     });
 
     it('should cache config', function () {
@@ -89,6 +89,14 @@ describe('googleAutoAuth', function () {
       });
 
       assert.strictEqual(auth.projectId, 'project-id');
+    });
+
+    it('should cache token', function () {
+      var auth = googleAutoAuth({
+        token: 'custom token'
+      });
+
+      assert.strictEqual(auth.projectId, 'custom token');
     });
   });
 
