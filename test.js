@@ -96,7 +96,7 @@ describe('googleAutoAuth', function () {
         token: 'custom token'
       });
 
-      assert.strictEqual(auth.projectId, 'custom token');
+      assert.strictEqual(auth.token, 'custom token');
     });
   });
 
